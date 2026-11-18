@@ -82,8 +82,8 @@ test('karakter kümesi algılanır', () => {
 });
 
 test('yerel ağ adresleri tanınır', () => {
-  for (const ip of ['127.0.0.1', '10.1.2.3', '192.168.1.5', '172.20.0.1', '169.254.169.254', '100.100.1.1', '::1', 'fd00::1', 'fe80::1', '::ffff:127.0.0.1', '0.0.0.0']) assert.equal(isPrivateAddress(ip), true, ip);
-  for (const ip of ['1.1.1.1', '172.32.0.1', '100.128.0.1', '2606:4700::1111']) assert.equal(isPrivateAddress(ip), false, ip);
+  for (const ip of ['127.0.0.1', '10.1.2.3', '192.168.1.5', '172.20.0.1', '169.254.169.254', '100.100.1.1', '::1', 'fd00::1', 'fe80::1', '::ffff:127.0.0.1', '0.0.0.0', '192.0.0.8', '192.0.2.1', '198.18.0.1']) assert.equal(isPrivateAddress(ip), true, ip);
+  for (const ip of ['1.1.1.1', '172.32.0.1', '100.128.0.1', '192.0.66.2', '2606:4700::1111']) assert.equal(isPrivateAddress(ip), false, ip);
 });
 
 test('kaynak adresi normalleştirilir', () => {

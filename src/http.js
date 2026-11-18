@@ -10,8 +10,9 @@ const VERSION = JSON.parse(readFileSync(new URL('../package.json', import.meta.u
 export const USER_AGENT = `Newsroom/${VERSION} (+https://github.com/AtnNaz/newsroom)`;
 
 function ipv4Private(ip) {
-  const [a, b] = ip.split('.').map(Number);
-  return a === 0 || a === 10 || a === 127 || a >= 224 || (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 192 && b === 0) || (a === 198 && (b === 18 || b === 19));
+  const [a, b, c] = ip.split('.').map(Number);
+  // 192.0.0.0/24 ve 192.0.2.0/24 ayrılmıştır; 192.0.x'in geri kalanı herkese açıktır (ör. WordPress VIP).
+  return a === 0 || a === 10 || a === 127 || a >= 224 || (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 192 && b === 0 && (c === 0 || c === 2)) || (a === 198 && (b === 18 || b === 19)) || (a === 198 && b === 51 && c === 100) || (a === 203 && b === 0 && c === 113);
 }
 
 export function isPrivateAddress(ip) {
