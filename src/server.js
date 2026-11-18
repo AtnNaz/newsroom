@@ -9,6 +9,7 @@ import { getDigest, listDigests, localDay } from './digest.js';
 import { addSource, exportOpml, importOpml, SUGGESTIONS } from './sources.js';
 import { sendTestEmail } from './mail.js';
 import { errorCode } from './http.js';
+import { collectStats } from './stats.js';
 
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const VERSION = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
@@ -196,6 +197,7 @@ export function createServer(app) {
 
   const routes = [
     ['GET', /^\/api\/status$/, () => status()],
+    ['GET', /^\/api\/stats$/, () => collectStats({ db, settings, pipeline, dbFile: app.dbFile })],
     ['GET', /^\/api\/articles$/, (req, m, q) => listArticles(q)],
     ['GET', /^\/api\/articles\/(\d+)$/, (req, m) => articleDetail(Number(m[1]))],
     ['PATCH', /^\/api\/articles\/(\d+)$/, async (req, m) => updateArticle(Number(m[1]), await readJson(req))],

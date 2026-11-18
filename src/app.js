@@ -13,7 +13,8 @@ const TICK_MS = 30_000;
 const DIGEST_WAIT_MIN = 30;
 
 export function createApp(config, { log = (m) => console.log(m), fetchImpl } = {}) {
-  const db = openDb(path.join(config.dataDir, 'newsroom.db'));
+  const dbFile = path.join(config.dataDir, 'newsroom.db');
+  const db = openDb(dbFile);
   const settings = createSettings(db, DEFAULT_SETTINGS);
   const fetchOpt = fetchImpl ? { fetchImpl } : {};
   const local = createOllama({ url: config.ollamaUrl, ...fetchOpt });
@@ -92,6 +93,7 @@ export function createApp(config, { log = (m) => console.log(m), fetchImpl } = {
     settings,
     llm,
     local,
+    dbFile,
     pipeline,
     auth,
     net,

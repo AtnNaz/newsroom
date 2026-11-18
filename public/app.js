@@ -612,8 +612,106 @@ async function viewSources() {
   ];
 }
 
+const fmtNum = (n) => Number(n ?? 0).toLocaleString(locale());
+function fmtDuration(sec) {
+  if (sec == null) return '—';
+  const h = Math.floor(sec / 3600);
+  const m = Math.round((sec % 3600) / 60);
+  if (h) return m ? `${t('dur.h', { n: h })} ${t('dur.m', { n: m })}` : t('dur.h', { n: h });
+  if (m) return t('dur.m', { n: m });
+  return t('dur.s', { n: Math.max(1, Math.round(sec)) });
+}
+function fmtBytes(b) {
+  if (!b) return '0 MB';
+  return b >= 1e9 ? `${(b / 1e9).toLocaleString(locale(), { maximumFractionDigits: 1 })} GB` : `${(b / 1e6).toLocaleString(locale(), { maximumFractionDigits: 1 })} MB`;
+}
+
+function statTile(value, label, sub, tone) {
+  return h('div', { class: `stat${tone ? ` stat-${tone}` : ''}` }, h('div', { class: 'stat-value' }, value), h('div', { class: 'stat-label' }, label), sub ? h('div', { class: 'stat-sub' }, sub) : null);
+}
+
+function barList(title, rows) {
+  const max = Math.max(1, ...rows.map((r) => r.n));
+  return h(
+    'div',
+    { class: 'bars' },
+    h('h3', { class: 'bars-title' }, title),
+    rows.length
+      ? h(
+          'ul',
+          {},
+          rows.map((r) => {
+            const fill = h('span', { class: 'bar-fill' });
+            fill.style.width = `${Math.max(2, (r.n / max) * 100).toFixed(1)}%`;
+            return h('li', { title: `${r.label}: ${fmtNum(r.n)}` }, h('span', { class: 'bar-label' }, r.label), h('span', { class: 'bar-track' }, fill), h('span', { class: 'bar-value' }, fmtNum(r.n)));
+          }),
+        )
+      : h('p', { class: 'muted small' }, '—'),
+  );
+}
+
+function renderStats(box, st) {
+  const etaText = !st.llm.model ? t('stats.noModel') : st.pending ? (st.eta != null ? t('stats.eta', { time: fmtDuration(st.eta) }) : t('stats.etaWait')) : t('stats.etaNone');
+  const embedText = !st.llm.embedModel ? t('stats.embedNone') : st.llm.embedPaused ? t('stats.embedPaused') : t('stats.embed', { model: st.llm.embedModel, n: fmtNum(st.embedded24h) });
+  const llmState = st.llm.limited
+    ? t('status.limited', { n: st.llm.dailyLimit })
+    : st.llm.ok === false
+      ? t('settings.providerDown', { provider: providerLabel(st.llm.provider), error: llmError(st.llm.error) })
+      : st.llm.current
+        ? t('stats.analyzing', { title: st.llm.current.title })
+        : t('stats.idle');
+  const emailText = !st.digest ? t('stats.noDigest') : st.digest.emailedAt ? t('stats.emailSent') : st.digest.emailError ? t('stats.emailFailed', { error: errMessage(st.digest.emailError) ?? st.digest.emailError }) : t('stats.emailNotSent');
+  const problems = [
+    ...st.sources.failing.map((f) => h('li', {}, h('strong', {}, f.title || hostOf(f.url)), ': ', errMessage(f.error) ?? f.error, f.lastOk ? h('span', { class: 'muted' }, ` · ${t('sources.lastOk', { time: relTime(f.lastOk) })}`) : null)),
+    ...st.errors.map((e) => h('li', {}, t('stats.articleError', { error: errMessage(e.error) ?? e.error, n: fmtNum(e.n) }))),
+    st.stale > 0 ? h('li', { class: 'muted' }, t('stats.stale', { n: fmtNum(st.stale) })) : null,
+  ].filter(Boolean);
+
+  box.replaceChildren(
+    h(
+      'div',
+      { class: 'stat-grid' },
+      statTile(fmtNum(st.pending), t('stats.pending'), etaText, st.pending > 200 ? 'busy' : null),
+      statTile(fmtNum(st.analyzed.lastHour), t('stats.lastHour'), t('stats.last24', { n: fmtNum(st.analyzed.last24h) })),
+      statTile(st.speed.avgSeconds != null ? t('dur.s', { n: st.speed.avgSeconds.toLocaleString(locale()) }) : '—', t('stats.avg'), st.speed.samples ? t('stats.avgSub', { n: st.speed.samples }) : t('stats.avgNone')),
+      statTile(fmtNum(st.fetched.last24h), t('stats.fetched'), t('stats.lastHourSub', { n: fmtNum(st.fetched.lastHour) })),
+      statTile(fmtNum(st.multiSource24h), t('stats.multi'), t('stats.multiSub')),
+      statTile(fmtNum(st.sources.enabled), t('stats.sources'), t('stats.sourcesSub', { failing: fmtNum(st.sources.failing.length) }), st.sources.failing.length ? 'warn' : null),
+      statTile(fmtBytes(st.storage.bytes), t('stats.storage'), t('stats.storageSub', { articles: fmtNum(st.storage.articles), saved: fmtNum(st.storage.saved) })),
+    ),
+    h(
+      'ul',
+      { class: 'stat-lines' },
+      h('li', { class: st.llm.ok === false || st.llm.limited ? 'error-text' : '' }, h('strong', {}, t('stats.now')), ' ', llmState),
+      h('li', {}, h('strong', {}, t('stats.model')), ' ', `${providerLabel(st.llm.provider)} · ${st.llm.model || t('settings.none')}`, st.llm.dailyLimit ? ` · ${t('stats.limit', { n: fmtNum(st.llm.analyzedToday), limit: fmtNum(st.llm.dailyLimit) })}` : '', ' · ', embedText),
+      h('li', {}, h('strong', {}, t('stats.digest')), ' ', st.digest ? `${dayDate(st.digest.day).toLocaleDateString(locale(), { day: 'numeric', month: 'long' })} · ${emailText}` : emailText),
+      h('li', { class: 'muted' }, t('stats.uptime', { time: fmtDuration(st.uptime) }), ' · ', t('stats.queueTotals', { done: fmtNum(st.queue.done), failed: fmtNum(st.queue.failed) }), ' · ', t('stats.updated')),
+    ),
+    h(
+      'div',
+      { class: 'bar-cols' },
+      barList(t('stats.categories'), st.categories.map((c) => ({ label: t(`cat.${c.category}`), n: c.n }))),
+      barList(t('stats.relevance'), st.relevance.map((b) => ({ label: `${b.from}–${b.to}`, n: b.n }))),
+      barList(t('stats.topSources'), st.sources.top.map((s) => ({ label: s.title || '—', n: s.n }))),
+    ),
+    h('div', { class: 'problems' }, h('h3', { class: 'bars-title' }, t('stats.problems')), problems.length ? h('ul', {}, problems) : h('p', { class: 'muted small' }, t('stats.noProblems'))),
+  );
+}
+
+let statsTimer = null;
+
 async function viewSettings() {
-  const [{ settings: s }, models] = await Promise.all([api('GET', 'settings'), api('GET', 'models')]);
+  const [{ settings: s }, models, initialStats] = await Promise.all([api('GET', 'settings'), api('GET', 'models'), api('GET', 'stats')]);
+  const statsBox = h('div', { class: 'stats-body' });
+  renderStats(statsBox, initialStats);
+  clearInterval(statsTimer);
+  statsTimer = setInterval(async () => {
+    if (document.hidden || !statsBox.isConnected) return;
+    try {
+      renderStats(statsBox, await api('GET', 'stats'));
+    } catch {}
+  }, 10_000);
+  const statsSection = h('fieldset', { class: 'stats' }, h('legend', {}, t('stats.title')), statsBox);
   state.settings = s;
   const field = (id, label, control, hint) => h('div', { class: 'field' }, h('label', { for: id }, label), control, hint ? h('p', { class: 'hint' }, hint) : null);
   const select = (id, value, options) => h('select', { id }, options.map(([v, label]) => h('option', { value: v, selected: String(v) === String(value) }, label)));
@@ -885,7 +983,7 @@ async function viewSettings() {
     ),
     h('div', { class: 'sticky-save' }, h('button', { class: 'btn btn-primary', type: 'submit' }, t('common.save'))),
   );
-  return [form, h('p', { class: 'muted small about' }, `Newsroom v${state.session.version} · `, h('a', { href: 'https://github.com/AtnNaz/newsroom', target: '_blank', rel: 'noopener noreferrer' }, 'GitHub'))];
+  return [statsSection, form, h('p', { class: 'muted small about' }, `Newsroom v${state.session.version} · `, h('a', { href: 'https://github.com/AtnNaz/newsroom', target: '_blank', rel: 'noopener noreferrer' }, 'GitHub'))];
 }
 
 let routeSeq = 0;
@@ -895,6 +993,7 @@ async function route() {
   const hash = location.hash.replace(/^#\/?/, '');
   const [view, arg] = hash.split('/');
   const seq = ++routeSeq;
+  if (view !== 'settings') clearInterval(statsTimer);
   const key = view === 'day' || view === 'article' || !view ? 'today' : view;
   setActiveNav(key);
   $main.replaceChildren(h('p', { class: 'muted pad' }, t('common.loading')));

@@ -152,3 +152,14 @@ test('çıkış oturumu kapatır', async () => {
   await call('POST', '/api/logout', {});
   assert.equal((await call('GET', '/api/status')).status, 401);
 });
+
+test('istatistik uç noktası kuyruk, hız ve dağılımları verir', async () => {
+  await call('POST', '/api/login', { password: PASSWORD }).then((r) => (cookie = r.headers.get('set-cookie').split(';')[0]));
+  const st = await (await call('GET', '/api/stats')).json();
+  for (const k of ['queue', 'pending', 'analyzed', 'fetched', 'speed', 'llm', 'categories', 'relevance', 'sources', 'errors', 'storage']) assert.ok(k in st, k);
+  assert.equal(st.relevance.length, 4);
+  assert.ok(st.storage.bytes > 0);
+  assert.ok(st.analyzed.total >= 1);
+  assert.equal(st.sources.top[0].n >= 1, true);
+  assert.equal(st.llm.provider, 'ollama');
+});

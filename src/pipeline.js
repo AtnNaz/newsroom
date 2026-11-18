@@ -8,7 +8,7 @@ const DAY = 24 * 3600_000;
 const FEED_ACCEPT = 'application/rss+xml, application/atom+xml, application/rdf+xml;q=0.9, application/xml;q=0.9, text/xml;q=0.9, */*;q=0.5';
 const FIRST_FETCH_LIMIT = 20;
 const FULL_TEXT_MIN = 1200;
-const ANALYZE_WINDOW = 7 * DAY;
+export const ANALYZE_WINDOW = 7 * DAY;
 const EMBED_PAUSE_MS = 15 * 60_000;
 const STOP_CODES = ['model_missing', 'refused', 'dns', 'timeout', 'network', 'reset', 'tls', 'auth_failed', 'rate_limited', 'quota', 'api_key_missing', 'provider_url_missing'];
 
@@ -68,6 +68,8 @@ export function createPipeline({ db, settings, llm, embedder, allowPrivate = fal
     current: null,
     llm: { ok: null, error: null, checked: null, limited: false },
     embedPausedUntil: 0,
+    started: Date.now(),
+    timings: [],
   };
 
   async function refreshSource(source, now = Date.now()) {
@@ -152,6 +154,7 @@ export function createPipeline({ db, settings, llm, embedder, allowPrivate = fal
   }
 
   async function analyzeOne(a, s) {
+    const startedAt = Date.now();
     const result = await analyzeArticle(currentLlm(), a, s);
     let embedding = null;
     if (s.embedModel && embedder && Date.now() >= state.embedPausedUntil) {
@@ -165,6 +168,8 @@ export function createPipeline({ db, settings, llm, embedder, allowPrivate = fal
     }
     st.analyzed.run(result.title, result.summary, result.category, JSON.stringify(result.tags), result.relevance, result.reason, Date.now(), s.model, s.provider ?? 'ollama', embedding, a.id);
     assignCluster(a.id, a.published ?? a.fetched);
+    state.timings.push(Date.now() - startedAt);
+    if (state.timings.length > 50) state.timings.shift();
   }
 
   function analyzedToday(provider) {
