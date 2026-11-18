@@ -100,7 +100,7 @@ Her haber bir kez analiz edilir; günde birkaç yüz haber için orta sınıf bi
 | 7-12B | `gemma3:12b`, `qwen3:8b` | ~7-10 sn | **Önerilen.** Puanlar tutarlı, alakasız haberler 0 alır |
 | 14B+ | `qwen3:14b` | ~15 sn+ | Daha iyi Türkçe, 8 GB belleğe sığmayabilir |
 
-İsteğe bağlı **benzerlik modeli** (`nomic-embed-text`, `bge-m3`) aynı olayı farklı kelimelerle anlatan haberleri daha iyi birleştirir:
+İsteğe bağlı **benzerlik modeli** aynı olayı farklı kelimelerle ya da farklı dillerde anlatan haberleri daha iyi birleştirir. Önerilen model çok dilli `bge-m3`'tür (1,2 GB); birleştirme eşiği onunla ölçülerek belirlendi:
 
 ```bash
 ollama pull bge-m3

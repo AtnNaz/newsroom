@@ -1,7 +1,9 @@
 // Aynı olayı anlatan haberleri bir araya toplar. Gömme modeli varsa vektörlerin kosinüs
 // benzerliği, yoksa başlık ve etiketlerdeki kelime köklerinin örtüşmesi (Jaccard) kullanılır.
 
-export const EMBED_THRESHOLD = 0.8;
+// bge-m3 ile gerçek haberlerde ölçüldü: aynı olay 0,78-0,84; aynı konuda farklı haberler
+// (ör. iki markanın fiyat listesi) 0,75'e kadar çıkıyor.
+export const EMBED_THRESHOLD = 0.76;
 export const TOKEN_THRESHOLD = 0.42;
 export const CLUSTER_WINDOW_MS = 48 * 3600_000;
 
