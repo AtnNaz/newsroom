@@ -1,0 +1,37 @@
+services:
+  newsroom:
+    build: .
+    image: newsroom:latest
+    restart: unless-stopped
+    ports:
+      - "8077:8077"
+    environment:
+      # Giriş şifresi (zorunlu). Bir .env dosyasında NEWSROOM_PASSWORD=... olarak verin.
+      NEWSROOM_PASSWORD: ${NEWSROOM_PASSWORD:?NEWSROOM_PASSWORD ayarlanmalı}
+      # Ollama bu makinede çalışıyorsa:
+      OLLAMA_URL: http://host.docker.internal:11434
+      # E-postadaki "Newsroom'da aç" bağlantısı için (isteğe bağlı):
+      # NEWSROOM_BASE_URL: https://haber.example.com
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - newsroom-data:/data
+
+  # Ollama'yı da konteynerde çalıştırmak isterseniz açın ve OLLAMA_URL'yi
+  # http://ollama:11434 yapın. NVIDIA ekran kartı için deploy bölümü gerekir.
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ollama:/root/.ollama
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: all
+  #             capabilities: [gpu]
+
+volumes:
+  newsroom-data:
+  # ollama:

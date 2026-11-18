@@ -1,0 +1,9 @@
+{
+  "host": "127.0.0.1",
+  "port": 8077,
+  "dataDir": "./data",
+  "ollamaUrl": "http://127.0.0.1:11434",
+  "baseUrl": "",
+  "trustProxy": false,
+  "allowPrivateNetworks": false
+}

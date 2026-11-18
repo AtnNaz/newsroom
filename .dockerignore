@@ -1,0 +1,9 @@
+.git
+.github
+node_modules
+data
+test
+config.json
+*.db
+*.db-*
+.DS_Store

@@ -1,0 +1,9 @@
+{
+  "name": "Newsroom",
+  "short_name": "Newsroom",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f3ec",
+  "theme_color": "#161512",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

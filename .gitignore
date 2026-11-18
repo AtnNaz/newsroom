@@ -1,0 +1,7 @@
+node_modules/
+data/
+config.json
+*.db
+*.db-*
+.DS_Store
+.claude/

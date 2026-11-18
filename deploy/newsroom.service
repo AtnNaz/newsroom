@@ -1,0 +1,42 @@
+[Unit]
+Description=Newsroom - kişisel haber özeti
+Documentation=https://github.com/AtnNaz/newsroom
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=newsroom
+Group=newsroom
+WorkingDirectory=/opt/newsroom
+ExecStart=/usr/bin/env node --disable-warning=ExperimentalWarning /opt/newsroom/bin/newsroom.js serve --config /etc/newsroom/config.json
+Restart=on-failure
+RestartSec=5
+UMask=0077
+
+# Sıkılaştırma: yalnızca veri klasörüne yazabilir, ayrıcalık kazanamaz.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/newsroom
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+[Install]
+WantedBy=multi-user.target

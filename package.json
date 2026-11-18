@@ -1,0 +1,30 @@
+{
+  "name": "newsroom",
+  "version": "0.1.0",
+  "description": "Kendi sunucunda çalışan, haberleri yerel yapay zekâ (Ollama) ile özetleyip ilgi alanına göre sıralayan kişisel haber odası",
+  "author": {
+    "name": "Ali Toprak Naz",
+    "url": "https://github.com/AtnNaz"
+  },
+  "homepage": "https://github.com/AtnNaz/newsroom",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AtnNaz/newsroom.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AtnNaz/newsroom/issues"
+  },
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "newsroom": "bin/newsroom.js"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning bin/newsroom.js serve",
+    "test": "node --disable-warning=ExperimentalWarning --test"
+  },
+  "engines": {
+    "node": ">=22.13"
+  }
+}
