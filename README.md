@@ -28,7 +28,7 @@ günlük özet ◄── sıralama ◄── kümeleme ◄── Ollama: başlı
 
 1. Kaynaklar belirlediğiniz aralıkla (15 dk – 4 saat) yenilenir; değişmeyen beslemeler indirilmez.
 2. Beslemede yalnızca kısa bir giriş varsa haber sayfası indirilip ana metin çıkarılır.
-3. Model her haber için şemaya uygun JSON döndürür: başlık, 2-3 cümlelik özet, konu (18 sabit konudan biri), etiketler ve **her ilgi alanınız için ayrı ayrı 0-10 puan**. Haberin ilgi puanı en iyi eşleşmeden hesaplanır.
+3. Model her haber için şemaya uygun JSON döndürür: başlık, 2-3 cümlelik özet, konu (18 sabit konudan biri), etiketler ve ilgi puanı. En fazla 8 ilgi alanında her biri ayrı ayrı 0-10 puanlanır (küçük modellerde en tutarlı yöntem); daha uzun listelerde model yalnızca haberin gerçekten ilgili olduğu en fazla 3 alanı puanlar, böylece analiz süresi liste uzadıkça artmaz. Haberin ilgi puanı en iyi eşleşmeden hesaplanır.
 4. Aynı olayı anlatan haberler 48 saatlik pencerede birleştirilir: benzerlik modeli seçiliyse vektör benzerliğiyle, değilse çevrilmiş başlık ve etiketlerin örtüşmesiyle.
 5. Sıralama puanı = ilgi puanı + geri bildirimden öğrenilen konu/kaynak eğilimi + olayı veren kaynak sayısı − haberin yaşı.
 6. Özet saatinde son 24 saatin en yüksek puanlı olayları seçilir; kuyrukta bekleyen haber varsa en fazla 30 dakika beklenir.

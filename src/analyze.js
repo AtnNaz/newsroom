@@ -3,12 +3,17 @@ import { CATEGORIES } from './settings.js';
 const LANG_NAME = { tr: 'Turkish (Türkçe)', en: 'English' };
 export const MAX_INPUT_CHARS = 6000;
 const score10 = { type: 'integer', minimum: 0, maximum: 10 };
+export const PER_INTEREST_LIMIT = 8;
 
 export function analysisSchema(interests = []) {
   const keys = interests.map((_, i) => String(i + 1));
-  const matching = interests.length
-    ? { interests: { type: 'object', properties: Object.fromEntries(keys.map((k) => [k, score10])), required: keys } }
-    : { importance: score10 };
+  let matching = { importance: score10 };
+  if (interests.length > PER_INTEREST_LIMIT) {
+    const item = { type: 'object', properties: { interest: { type: 'integer', minimum: 1, maximum: interests.length }, score: score10 }, required: ['interest', 'score'] };
+    matching = { matches: { type: 'array', items: item, maxItems: 3 } };
+  } else if (interests.length) {
+    matching = { interests: { type: 'object', properties: Object.fromEntries(keys.map((k) => [k, score10])), required: keys } };
+  }
   return {
     type: 'object',
     properties: {
@@ -30,7 +35,9 @@ export function buildAnalysisMessages(article, { language = 'tr', interests = []
         'The reader\'s interests, numbered:',
         ...interests.map((v, i) => `${i + 1}. ${v}`),
         `"reason": one short sentence in ${lang}: which interest, if any, is this story actually about? Say "none" (in ${lang}) when it is about none of them. Same broad field is not enough: a phone launch is not about AI just because phones are technology.`,
-        '"interests": for every number, rate 0-10 how much the story is about that interest, consistent with "reason". 0 = not about it, 3 = mentioned in passing, 6 = clearly related, 10 = the story is mainly about it.',
+        interests.length > PER_INTEREST_LIMIT
+          ? '"matches": the interests this story is actually about, best match first, at most 3, as { "interest": number, "score": 0-10 }. 3 = mentioned in passing, 6 = clearly related, 10 = the story is mainly about it. Use an empty list when it is about none of them; do not list weak or broad-field matches.'
+          : '"interests": for every number, rate 0-10 how much the story is about that interest, consistent with "reason". 0 = not about it, 3 = mentioned in passing, 6 = clearly related, 10 = the story is mainly about it.',
       ]
     : [
         `"reason": one short sentence in ${lang} on why the story matters.`,
@@ -62,8 +69,17 @@ const rating = (v) => {
 
 export function relevanceFrom(raw, interests = []) {
   if (!interests.length) return rating(raw?.importance) * 10;
-  const ratings = interests.map((_, i) => rating(raw?.interests?.[String(i + 1)])).sort((a, b) => b - a);
-  return Math.min(100, ratings[0] * 10 + Math.min(ratings[1] ?? 0, 5));
+  let ratings;
+  if (interests.length > PER_INTEREST_LIMIT) {
+    const best = new Map();
+    for (const m of Array.isArray(raw?.matches) ? raw.matches : []) {
+      const i = Math.round(Number(m?.interest));
+      if (Number.isInteger(i) && i >= 1 && i <= interests.length) best.set(i, Math.max(best.get(i) ?? 0, rating(m.score)));
+    }
+    ratings = [...best.values()];
+  } else ratings = interests.map((_, i) => rating(raw?.interests?.[String(i + 1)]));
+  ratings.sort((a, b) => b - a);
+  return Math.min(100, (ratings[0] ?? 0) * 10 + Math.min(ratings[1] ?? 0, 5));
 }
 
 export function normalizeAnalysis(raw, article = {}, interests = []) {

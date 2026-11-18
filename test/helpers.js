@@ -62,7 +62,7 @@ export async function fakeOllama({ models = ['test-model:7b', 'embed-model'] } =
         category: ai ? 'ai' : 'world',
         tags: ai ? ['yapay zeka'] : [],
         reason: ai ? 'Yapay zekâ ile ilgili.' : 'yok',
-        ...(keys.length ? { interests: Object.fromEntries(keys.map((k, i) => [k, ai && i === 0 ? 9 : 0])) } : { importance: 5 }),
+        ...(body.format.properties.matches ? { matches: ai ? [{ interest: 1, score: 9 }] : [] } : keys.length ? { interests: Object.fromEntries(keys.map((k, i) => [k, ai && i === 0 ? 9 : 0])) } : { importance: 5 }),
       };
       return json({ message: { content: JSON.stringify(out) } });
     }

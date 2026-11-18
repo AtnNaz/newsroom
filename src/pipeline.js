@@ -71,7 +71,7 @@ export function createPipeline({ db, settings, ollama, allowPrivate = false, log
     if (source.etag) conditional['If-None-Match'] = source.etag;
     if (source.last_modified) conditional['If-Modified-Since'] = source.last_modified;
     try {
-      const res = await fetchResource(source.url, { ...net, headers: conditional, accept: FEED_ACCEPT, maxBytes: 8_000_000 });
+      const res = await fetchResource(source.url, { ...net, headers: conditional, accept: FEED_ACCEPT, maxBytes: 8_000_000, timeoutMs: 45_000 });
       if (res.status === 304) {
         st.sourceNotModified.run(now, now, source.id);
         return { added: 0, notModified: true };
@@ -124,7 +124,7 @@ export function createPipeline({ db, settings, ollama, allowPrivate = false, log
 
   async function extractOne(a) {
     try {
-      const res = await fetchResource(a.url, { ...net, accept: 'text/html,application/xhtml+xml', maxBytes: 4_000_000 });
+      const res = await fetchResource(a.url, { ...net, accept: 'text/html,application/xhtml+xml', maxBytes: 4_000_000, timeoutMs: 40_000 });
       const page = extractArticle(res.body, res.url);
       const text = page.text.length > (a.text?.length ?? 0) ? page.text : a.text;
       st.extracted.run(text?.slice(0, 50_000) ?? null, page.image, page.published, page.lang, a.id);

@@ -20,7 +20,7 @@ export function normalizeFeedUrl(input) {
 }
 
 async function tryFeed(url, net) {
-  const res = await fetchResource(url, { ...net, accept: ACCEPT, maxBytes: 8_000_000 });
+  const res = await fetchResource(url, { ...net, accept: ACCEPT, maxBytes: 8_000_000, timeoutMs: 45_000 });
   try {
     return { url: res.url, feed: parseFeed(res.body, res.url) };
   } catch {

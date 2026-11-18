@@ -29,6 +29,12 @@ test('model çıktısı doğrulanır ve sınırlanır', () => {
   assert.throws(() => normalizeAnalysis([]), /invalid_model_output/);
   assert.equal(relevanceFrom({ interests: { 1: 6, 2: 4 } }, ['a', 'b']), 64);
   assert.equal(relevanceFrom({ importance: 7 }, []), 70);
+  const many = Array.from({ length: 12 }, (_, i) => `ilgi ${i + 1}`);
+  assert.ok(analysisSchema(many).properties.matches, 'uzun listede yalnızca eşleşenler istenir');
+  assert.equal(analysisSchema(many).properties.interests, undefined);
+  assert.equal(relevanceFrom({ matches: [{ interest: 4, score: 7 }, { interest: 9, score: 3 }, { interest: 99, score: 10 }, { interest: 4, score: 2 }] }, many), 73);
+  assert.equal(relevanceFrom({ matches: [] }, many), 0);
+  assert.equal(relevanceFrom({}, many), 0);
   assert.equal(normalizeAnalysis({ summary: 's', reason: 'Alakasız ama yazmış', interests: { 1: 1 } }, {}, ['a']).reason, '');
 });
 
