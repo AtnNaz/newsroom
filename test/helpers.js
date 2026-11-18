@@ -68,6 +68,7 @@ export async function fakeOllama({ models = ['test-model:7b', 'embed-model'] } =
     }
     if (req.url === '/api/embed') {
       calls.embed++;
+      calls.embedOptions = body.options;
       const v = /çip/i.test(body.input) ? [1, 0, 0] : /yapay/i.test(body.input) ? [0, 1, 0] : [0, 0, 1];
       return json({ embeddings: [v] });
     }

@@ -125,6 +125,8 @@ Her haber bir kez analiz edilir; günde birkaç yüz haber için orta sınıf bi
 ollama pull bge-m3
 ```
 
+Benzerlik modeli işlemcide çalıştırılır (kısa bir metin için ~0,15 sn). Böylece ekran kartının belleği analiz modeline kalır; iki model 8 GB'lık bir kartta birbirini sürekli çıkarıp yeniden yüklemez.
+
 Düşünen (reasoning) modellerde düşünme kapatılarak çalıştırılır; destekleri yoksa istek kendiliğinden düşünme alanı olmadan tekrarlanır.
 
 ## E-posta

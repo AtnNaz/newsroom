@@ -90,6 +90,7 @@ test('indir → tam metin → analiz → kümele → günlük özet', async () =
     assert.equal(rows[0].cluster_id, rows[1].cluster_id, 'aynı olay aynı kümede');
     assert.notEqual(rows[2].cluster_id, rows[0].cluster_id);
     assert.equal(ollama.calls.embed, 3);
+    assert.deepEqual(ollama.calls.embedOptions, { num_gpu: 0 }, 'benzerlik modeli ekran kartını analiz modeline bırakır');
 
     assert.equal((await pipeline.refreshAll()).added, 0);
     assert.equal(site.hits.notModified, 1);
