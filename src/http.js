@@ -1,5 +1,8 @@
 import dns from 'node:dns/promises';
 import net from 'node:net';
+import http from 'node:http';
+import https from 'node:https';
+import zlib from 'node:zlib';
 import { readFileSync } from 'node:fs';
 
 const VERSION = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
@@ -19,10 +22,24 @@ export function isPrivateAddress(ip) {
   return v === '::' || v === '::1' || /^f[cd]/.test(v) || /^fe[89ab]/.test(v) || /^ff/.test(v) || /^64:ff9b:/.test(v) || /^2001:db8:/.test(v);
 }
 
-async function assertPublic(url) {
-  const host = url.hostname.replace(/^\[|\]$/g, '');
-  const addrs = net.isIP(host) ? [{ address: host }] : await dns.lookup(host, { all: true, verbatim: true });
-  if (!addrs.length || addrs.some((a) => isPrivateAddress(a.address))) throw Object.assign(new Error('blocked_address'), { code: 'blocked_address' });
+const blocked = () => Object.assign(new Error('blocked_address'), { code: 'blocked_address' });
+
+export async function resolveHost(hostname, allowPrivate = false, lookup = dns.lookup) {
+  const host = hostname.replace(/^\[|\]$/g, '');
+  if (net.isIP(host)) {
+    if (!allowPrivate && isPrivateAddress(host)) throw blocked();
+    return { address: host, family: net.isIP(host) };
+  }
+  let addrs = [];
+  try {
+    addrs = await lookup(host, { all: true, family: 4 });
+  } catch (err) {
+    if (!['ENOTFOUND', 'ENODATA', 'EAI_NONAME', 'EAI_NODATA'].includes(err.code)) throw err;
+  }
+  if (!addrs.length) addrs = await lookup(host, { all: true, family: 6 });
+  if (!addrs.length) throw Object.assign(new Error('dns'), { code: 'dns' });
+  if (!allowPrivate && addrs.some((a) => isPrivateAddress(a.address))) throw blocked();
+  return { address: addrs[0].address, family: addrs[0].family };
 }
 
 export function decodeBody(buf, contentType = '') {
@@ -42,46 +59,77 @@ export function decodeBody(buf, contentType = '') {
 
 const fail = (code, extra) => Object.assign(new Error(code), { code, ...extra });
 
-export async function fetchResource(url, { headers = {}, accept = '*/*', maxBytes = 5_000_000, timeoutMs = 20_000, allowPrivate = false, fetchImpl = fetch } = {}) {
+function requestOnce(url, { headers, signal, address }) {
+  return new Promise((resolve, reject) => {
+    const lookup = (hostname, options, callback) => (options?.all ? callback(null, [address]) : callback(null, address.address, address.family));
+    const req = (url.protocol === 'https:' ? https : http).request(url, { method: 'GET', headers, signal, lookup }, resolve);
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+const headerBag = (raw) => {
+  const out = new Headers();
+  for (const [k, v] of Object.entries(raw)) out.set(k, Array.isArray(v) ? v.join(', ') : String(v));
+  return out;
+};
+
+function decoder(encoding) {
+  const e = String(encoding ?? '').trim().toLowerCase();
+  if (e === 'gzip' || e === 'x-gzip') return zlib.createGunzip();
+  if (e === 'deflate') return zlib.createInflate();
+  if (e === 'br') return zlib.createBrotliDecompress();
+  return null;
+}
+
+export async function fetchResource(url, { headers = {}, accept = '*/*', maxBytes = 5_000_000, timeoutMs = 20_000, allowPrivate = false } = {}) {
   let current = new URL(url);
   const signal = AbortSignal.timeout(timeoutMs);
   for (let hop = 0; hop < 6; hop++) {
     if (current.protocol !== 'http:' && current.protocol !== 'https:') throw fail('bad_protocol');
     if (current.username || current.password) throw fail('bad_url');
-    if (!allowPrivate) await assertPublic(current);
-    const res = await fetchImpl(current, {
-      headers: { 'User-Agent': USER_AGENT, Accept: accept, 'Accept-Language': 'tr,en;q=0.8,*;q=0.5', ...headers },
-      redirect: 'manual',
+    const address = await resolveHost(current.hostname, allowPrivate);
+    const res = await requestOnce(current, {
+      headers: { 'User-Agent': USER_AGENT, Accept: accept, 'Accept-Language': 'tr,en;q=0.8,*;q=0.5', 'Accept-Encoding': 'gzip, deflate, br', ...headers },
       signal,
+      address,
     });
-    if ([301, 302, 303, 307, 308].includes(res.status)) {
-      const location = res.headers.get('location');
-      await res.body?.cancel();
-      if (!location) throw fail(`http_${res.status}`);
+    const status = res.statusCode ?? 0;
+    const resHeaders = headerBag(res.headers);
+    if ([301, 302, 303, 307, 308].includes(status)) {
+      res.resume();
+      const location = resHeaders.get('location');
+      if (!location) throw fail(`http_${status}`);
       current = new URL(location, current);
       continue;
     }
-    if (res.status === 304) {
-      await res.body?.cancel();
-      return { status: 304, url: current.href, headers: res.headers, body: '' };
+    if (status === 304) {
+      res.resume();
+      return { status, url: current.href, headers: resHeaders, body: '' };
     }
-    if (!res.ok) {
-      await res.body?.cancel();
-      throw fail(`http_${res.status}`, { status: res.status });
+    if (status < 200 || status >= 300) {
+      res.resume();
+      throw fail(`http_${status}`, { status });
     }
-    if (Number(res.headers.get('content-length')) > maxBytes) {
-      await res.body?.cancel();
+    if (Number(resHeaders.get('content-length')) > maxBytes) {
+      res.destroy();
       throw fail('too_large');
     }
+    const unzip = decoder(resHeaders.get('content-encoding'));
+    const stream = unzip ? res.pipe(unzip) : res;
+    if (unzip) res.on('error', (err) => unzip.destroy(err));
     const chunks = [];
     let size = 0;
-    for await (const chunk of res.body ?? []) {
-      size += chunk.byteLength;
-      if (size > maxBytes) throw fail('too_large');
-      chunks.push(chunk);
+    try {
+      for await (const chunk of stream) {
+        size += chunk.byteLength;
+        if (size > maxBytes) throw fail('too_large');
+        chunks.push(chunk);
+      }
+    } finally {
+      res.destroy();
     }
-    const buf = Buffer.concat(chunks);
-    return { status: res.status, url: current.href, headers: res.headers, body: decodeBody(buf, res.headers.get('content-type') ?? '') };
+    return { status, url: current.href, headers: resHeaders, body: decodeBody(Buffer.concat(chunks), resHeaders.get('content-type') ?? '') };
   }
   throw fail('too_many_redirects');
 }

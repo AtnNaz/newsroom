@@ -23,9 +23,9 @@ async function mapLimit(items, limit, fn) {
   await Promise.all(workers);
 }
 
-export function createPipeline({ db, settings, llm, embedder, allowPrivate = false, log = () => {}, fetchImpl }) {
+export function createPipeline({ db, settings, llm, embedder, allowPrivate = false, log = () => {} }) {
   const currentLlm = typeof llm === 'function' ? llm : () => llm;
-  const net = { allowPrivate, ...(fetchImpl ? { fetchImpl } : {}) };
+  const net = { allowPrivate };
   const st = {
     sourceById: db.prepare('SELECT * FROM sources WHERE id = ?'),
     enabledSources: db.prepare('SELECT * FROM sources WHERE enabled = 1 ORDER BY id'),

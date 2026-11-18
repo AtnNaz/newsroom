@@ -24,9 +24,9 @@ export function createApp(config, { log = (m) => console.log(m), fetchImpl } = {
     if (cached.signature !== signature) cached = { signature, client: createLlm({ provider: s.provider, providerUrl: s.providerUrl, apiKeys: s.apiKeys, ollamaUrl: config.ollamaUrl, ...fetchOpt }) };
     return cached.client;
   };
-  const pipeline = createPipeline({ db, settings, llm, embedder: local, allowPrivate: config.allowPrivateNetworks, log, fetchImpl });
+  const pipeline = createPipeline({ db, settings, llm, embedder: local, allowPrivate: config.allowPrivateNetworks, log });
   const auth = createAuth({ db, config });
-  const net = { allowPrivate: config.allowPrivateNetworks, ...(fetchImpl ? { fetchImpl } : {}) };
+  const net = { allowPrivate: config.allowPrivateNetworks };
 
   const sched = { timer: null, ticking: false, digestBusy: false, lastCleanup: 0 };
 

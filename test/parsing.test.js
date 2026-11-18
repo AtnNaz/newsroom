@@ -2,7 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { decodeEntities, htmlToText, extractArticle, resolveUrl } from '../src/html.js';
 import { parseFeed, discoverFeeds } from '../src/feeds.js';
-import { decodeBody, isPrivateAddress } from '../src/http.js';
+import { decodeBody, isPrivateAddress, resolveHost, fetchResource } from '../src/http.js';
+import zlib from 'node:zlib';
+import { listen } from './helpers.js';
 import { normalizeFeedUrl } from '../src/sources.js';
 import { articlePage } from './helpers.js';
 
@@ -90,4 +92,42 @@ test('kaynak adresi normalleştirilir', () => {
   assert.equal(normalizeFeedUrl('example.com/rss#x'), 'https://example.com/rss');
   assert.throws(() => normalizeFeedUrl('ftp://example.com/'), /bad_url/);
   assert.throws(() => normalizeFeedUrl('https://user:pw@example.com/'), /bad_url/);
+});
+
+test('adres çözme önce IPv4 sorar, yoksa IPv6; yerel adresler engellenir', async () => {
+  const asked = [];
+  const lookup = async (host, { family }) => {
+    asked.push(family);
+    if (host === 'v6only.example') {
+      if (family === 4) throw Object.assign(new Error('nf'), { code: 'ENOTFOUND' });
+      return [{ address: '2606:4700::1111', family: 6 }];
+    }
+    if (host === 'ic.example') return [{ address: '192.168.1.10', family: 4 }];
+    return family === 4 ? [{ address: '93.184.216.34', family: 4 }] : [];
+  };
+  assert.deepEqual(await resolveHost('haber.example', false, lookup), { address: '93.184.216.34', family: 4 });
+  assert.deepEqual(asked, [4], 'IPv4 bulununca IPv6 hiç sorulmaz');
+  assert.equal((await resolveHost('v6only.example', false, lookup)).family, 6);
+  await assert.rejects(resolveHost('ic.example', false, lookup), /blocked_address/);
+  assert.equal((await resolveHost('ic.example', true, lookup)).address, '192.168.1.10');
+  await assert.rejects(resolveHost('[::1]', false, lookup), /blocked_address/);
+});
+
+test('sıkıştırılmış yanıtlar açılır, boyut sınırı açılmış veriye uygulanır', async () => {
+  const body = '<rss>' + 'ş'.repeat(5000) + '</rss>';
+  const srv = await listen((req, res) => {
+    const enc = req.url === '/br' ? 'br' : 'gzip';
+    const data = enc === 'br' ? zlib.brotliCompressSync(body) : zlib.gzipSync(body);
+    res.writeHead(200, { 'Content-Type': 'application/rss+xml; charset=utf-8', 'Content-Encoding': enc, ETag: '"e1"' });
+    res.end(data);
+  });
+  try {
+    const gz = await fetchResource(`${srv.url}/gz`, { allowPrivate: true });
+    assert.equal(gz.body, body);
+    assert.equal(gz.headers.get('etag'), '"e1"');
+    assert.equal((await fetchResource(`${srv.url}/br`, { allowPrivate: true })).body, body);
+    await assert.rejects(fetchResource(`${srv.url}/gz`, { allowPrivate: true, maxBytes: 2000 }), /too_large/);
+  } finally {
+    await srv.close();
+  }
 });

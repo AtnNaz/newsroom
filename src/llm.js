@@ -143,7 +143,7 @@ function ollamaCloudClient({ url, key, fetchImpl, timeoutMs }) {
       return (data.models ?? []).map((m) => ({ name: m.name ?? m.model, size: m.size ?? null })).filter((m) => m.name);
     },
     async chatJson({ model, messages, schema, temperature = 0.2 }) {
-      const body = { model, messages: withSchemaInstruction(messages, schema), stream: false, think: false, options: { temperature } };
+      const body = { model, messages: withSchemaInstruction(messages, schema), stream: false, think: false, options: { temperature, num_predict: 3072 } };
       try {
         const data = await call(`${base}/api/chat`, { method: 'POST', headers, body });
         return extractJson(data.message?.content);
@@ -157,7 +157,7 @@ function ollamaCloudClient({ url, key, fetchImpl, timeoutMs }) {
   };
 }
 
-export function createLlm({ provider, providerUrl, apiKeys = {}, ollamaUrl, fetchImpl = fetch, timeoutMs = 5 * 60_000 }) {
+export function createLlm({ provider, providerUrl, apiKeys = {}, ollamaUrl, fetchImpl = fetch, timeoutMs = 3 * 60_000 }) {
   const p = providerById(provider);
   const key = apiKeys[p.id] ?? '';
   if (p.key === 'required' && !key) {
