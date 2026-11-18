@@ -128,7 +128,7 @@ ollama pull bge-m3
 
 Benzerlik modeli işlemcide çalıştırılır (kısa bir metin için ~0,15 sn). Böylece ekran kartının belleği analiz modeline kalır; iki model 8 GB'lık bir kartta birbirini sürekli çıkarıp yeniden yüklemez.
 
-Düşünen (reasoning) modellerde düşünme kapatılarak çalıştırılır; destekleri yoksa istek kendiliğinden düşünme alanı olmadan tekrarlanır.
+Düşünen (reasoning) modellerde düşünme kapatılarak çalıştırılır; destekleri yoksa istek kendiliğinden düşünme alanı olmadan tekrarlanır. `deepseek-r1` modelleri düşünmeyi kapatma isteğini dikkate almadığı için cevap boş bir düşünme bloğuyla başlatılır ve şema isteme yazılır: 8 GB'lık bir kartta haber başına süre ~20-40 sn'den ~3-4 sn'ye iner. Bu kipte ilgi puanları biraz daha sıkışık çıkar (doğrudan eşleşmelere 100 yerine 60-85 gibi), sıralama yine anlamlıdır.
 
 ## Yapay zekâ sağlayıcıları
 

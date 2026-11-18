@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { createLlm, strictSchema, extractJson } from '../src/llm.js';
+import { createOllama, skipsThinking } from '../src/ollama.js';
 import { analysisSchema, analyzeArticle } from '../src/analyze.js';
 import { validateSettings, publicSettings, DEFAULT_SETTINGS } from '../src/settings.js';
 import { openDb, createSettings } from '../src/db.js';
@@ -160,4 +161,25 @@ test('API anahtarları doğrulanır ve arayüze hiç gönderilmez', () => {
   const pub = publicSettings({ ...DEFAULT_SETTINGS, apiKeys: { openai: 'sk-gizli' } });
   assert.equal(JSON.stringify(pub).includes('sk-gizli'), false);
   assert.deepEqual(pub.keysSet, { openai: true });
+});
+
+test('deepseek-r1 düşünmeyi atlar: boş düşünme bloğuyla başlar, şema istemde', async () => {
+  assert.equal(skipsThinking('deepseek-r1:8b'), true);
+  assert.equal(skipsThinking('hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_M'), true);
+  assert.equal(skipsThinking('gemma3:12b'), false);
+  const api = await fakeApi(({ body }) => [200, { message: { content: JSON.stringify(RESULT) } }]);
+  try {
+    const ollama = createOllama({ url: api.url });
+    const out = await ollama.chatJson({ model: 'deepseek-r1:8b', messages: [{ role: 'system', content: 'S' }, { role: 'user', content: 'U' }], schema: analysisSchema(['a']) });
+    assert.equal(out.title, 'Başlık');
+    const body = api.seen[0].body;
+    assert.equal(body.format, undefined, 'şemaya bağlı çıktı bu yöntemle birlikte çalışmıyor');
+    assert.deepEqual(body.messages.at(-1), { role: 'assistant', content: '<think>\n\n</think>\n\n' });
+    assert.match(body.messages[0].content, /JSON schema/);
+    await ollama.chatJson({ model: 'gemma3:12b', messages: [{ role: 'user', content: 'U' }], schema: analysisSchema(['a']) });
+    assert.ok(api.seen[1].body.format, 'diğer modellerde şemaya bağlı çıktı sürer');
+    assert.equal(api.seen[1].body.messages.at(-1).role, 'user');
+  } finally {
+    await api.close();
+  }
 });

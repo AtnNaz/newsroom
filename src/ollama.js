@@ -1,3 +1,7 @@
+import { extractJson, withSchemaInstruction } from './json.js';
+
+export const skipsThinking = (model) => /(^|\/)deepseek-r1/i.test(String(model ?? ''));
+
 export function createOllama({ url, fetchImpl = fetch, timeoutMs = 3 * 60_000 }) {
   const api = (p) => new URL(p, url.endsWith('/') ? url : `${url}/`);
 
@@ -18,6 +22,11 @@ export function createOllama({ url, fetchImpl = fetch, timeoutMs = 3 * 60_000 })
       return (data.models ?? []).map((m) => ({ name: m.name, size: m.size ?? null, family: m.details?.family ?? null, parameterSize: m.details?.parameter_size ?? null }));
     },
     async chatJson({ model, messages, schema, temperature = 0.2, numCtx = 8192, maxTokens = 3072 }) {
+      if (skipsThinking(model)) {
+        const prefilled = [...withSchemaInstruction(messages, schema), { role: 'assistant', content: '<think>\n\n</think>\n\n' }];
+        const data = await post('api/chat', { model, messages: prefilled, stream: false, keep_alive: '10m', options: { temperature, num_ctx: numCtx, num_predict: maxTokens } });
+        return extractJson(data?.message?.content);
+      }
       const body = { model, messages, stream: false, think: false, format: schema, keep_alive: '10m', options: { temperature, num_ctx: numCtx, num_predict: maxTokens } };
       let data;
       try {
