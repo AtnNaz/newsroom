@@ -132,6 +132,16 @@ test('Ollama yoksa haberler cezalandırılmaz, model bulunamazsa kuyruk bekler',
     assert.equal(pipeline.state.ollama.error, 'model_missing');
     assert.equal(db.prepare('SELECT MAX(attempts) AS n FROM articles').get().n, 0);
 
+    settings.update({ model: 'test-model:7b', embedModel: 'embed-model' });
+    let embedCalls = 0;
+    const slowEmbed = { ...createOllama({ url: ollama.url }), embed: async () => { embedCalls++; throw Object.assign(new Error('timeout'), { code: 'timeout' }); } };
+    const paused = createPipeline({ db, settings, ollama: slowEmbed, allowPrivate: true, log: () => {} });
+    await paused.analyzePending();
+    assert.equal(embedCalls, 1, 'benzerlik modeli zaman aşımına düşünce sonraki haberlerde denenmez');
+    assert.equal(paused.queue().done, 3, 'analiz benzerlik modeli olmadan sürer');
+    paused.requeue(86400_000);
+    settings.update({ model: '', embedModel: '' });
+
     const dead = createPipeline({ db, settings: { ...settings, all: () => ({ ...settings.all(), model: 'test-model:7b' }) }, ollama: createOllama({ url: 'http://127.0.0.1:9' }), allowPrivate: true });
     await dead.analyzePending();
     assert.equal(dead.state.ollama.ok, false);

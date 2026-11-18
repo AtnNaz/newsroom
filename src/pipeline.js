@@ -9,6 +9,7 @@ const FEED_ACCEPT = 'application/rss+xml, application/atom+xml, application/rdf+
 const FIRST_FETCH_LIMIT = 20;
 const FULL_TEXT_MIN = 1200;
 const ANALYZE_WINDOW = 7 * DAY;
+const EMBED_PAUSE_MS = 15 * 60_000;
 
 async function mapLimit(items, limit, fn) {
   let i = 0;
@@ -64,6 +65,7 @@ export function createPipeline({ db, settings, ollama, allowPrivate = false, log
     lastRefresh: null,
     current: null,
     ollama: { ok: null, error: null, checked: null },
+    embedPausedUntil: 0,
   };
 
   async function refreshSource(source, now = Date.now()) {
@@ -150,11 +152,13 @@ export function createPipeline({ db, settings, ollama, allowPrivate = false, log
   async function analyzeOne(a, s) {
     const result = await analyzeArticle(ollama, a, s);
     let embedding = null;
-    if (s.embedModel) {
+    if (s.embedModel && Date.now() >= state.embedPausedUntil) {
       try {
         embedding = toBlob(await ollama.embed({ model: s.embedModel, input: embeddingText({ ...a, title_local: result.title, summary: result.summary }) }));
       } catch (err) {
-        log(`gömme alınamadı: ${errorCode(err)}`);
+        const code = errorCode(err);
+        state.embedPausedUntil = Date.now() + EMBED_PAUSE_MS;
+        log(`gömme alınamadı (${code}); benzerlik modeli 15 dakika atlanacak, kümeleme başlıklarla sürüyor`);
       }
     }
     st.analyzed.run(result.title, result.summary, result.category, JSON.stringify(result.tags), result.relevance, result.reason, Date.now(), s.model, embedding, a.id);
