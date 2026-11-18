@@ -92,6 +92,11 @@ test('ayar doğrulaması', () => {
   assert.deepEqual(mail.errors, []);
   assert.equal(mail.value.email.pass, 'eski');
   assert.deepEqual(validateSettings({ email: { enabled: true } }).errors, ['email.incomplete']);
+  const gmail = validateSettings({ email: { enabled: true, host: 'smtp.gmail.com', port: 587, security: 'starttls', user: ' ad@gmail.com ', pass: 'abcd efgh ijkl mnop', to: 'ad@gmail.com' } });
+  assert.deepEqual(gmail.errors, []);
+  assert.equal(gmail.value.email.pass, 'abcdefghijklmnop', 'Gmail uygulama şifresindeki boşluklar atılır');
+  assert.equal(gmail.value.email.user, 'ad@gmail.com');
+  assert.equal(validateSettings({ email: { host: 'smtp.example.com', pass: 'a b' } }).value.email.pass, 'a b', 'diğer sağlayıcılarda şifreye dokunulmaz');
   assert.deepEqual(validateSettings({ email: { from: 'x@y.com\r\nBcc: z@w.com' } }).errors, ['email.from']);
   const pub = publicSettings({ ...DEFAULT_SETTINGS, email: { ...DEFAULT_SETTINGS.email, pass: 'gizli' } });
   assert.equal(pub.email.pass, undefined);

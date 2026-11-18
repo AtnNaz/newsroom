@@ -96,7 +96,8 @@ export async function fetchResource(url, { headers = {}, accept = '*/*', maxByte
 export function errorCode(err) {
   if (err?.code && typeof err.code === 'string' && /^[a-z_0-9]+$/.test(err.code)) return err.code;
   if (err?.name === 'TimeoutError' || err?.name === 'AbortError') return 'timeout';
-  const cause = err?.cause?.code;
+  // fetch hataları sistem kodunu cause içinde, net/tls soketleri doğrudan hatanın üzerinde taşır.
+  const cause = err?.cause?.code ?? err?.code;
   if (cause === 'ENOTFOUND' || cause === 'EAI_AGAIN') return 'dns';
   if (cause === 'ECONNREFUSED') return 'refused';
   if (cause === 'UND_ERR_CONNECT_TIMEOUT' || cause === 'UND_ERR_HEADERS_TIMEOUT' || cause === 'ETIMEDOUT') return 'timeout';

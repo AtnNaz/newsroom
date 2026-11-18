@@ -110,13 +110,22 @@ Düşünen (reasoning) modellerde düşünme kapatılarak çalıştırılır; de
 
 ## E-posta
 
-Ayarlar → E-posta bölümüne SMTP bilgilerinizi girip **Deneme e-postası gönder** ile denetleyin. Çoğu sağlayıcı için:
+Ayarlar → E-posta bölümünden sağlayıcınızı seçin; Gmail, iCloud Mail ve Yandex Mail için sunucu, port ve güvenlik kendiliğinden dolar. Diğer sağlayıcılar için SMTP bilgilerini elle girin. Ardından **Deneme e-postası gönder** ile denetleyin.
 
-| Sağlayıcı | Sunucu | Port / güvenlik | Not |
+**Gmail ile kurulum:**
+
+1. Google hesabınızda [2 adımlı doğrulamayı](https://myaccount.google.com/signinoptions/twosv) açın (uygulama şifresi için şart).
+2. [Uygulama şifreleri](https://myaccount.google.com/apppasswords) sayfasında "Newsroom" adıyla bir şifre oluşturun.
+3. Newsroom'da sağlayıcı olarak Gmail'i seçin, kullanıcı adına Gmail adresinizi, şifreye 16 harflik uygulama şifresini yazın (aradaki boşluklar önemli değil).
+4. Alıcıyı boş bırakırsanız özet kendi adresinize gelir.
+
+| Sağlayıcı | Sunucu | Port / güvenlik | Şifre |
 |---|---|---|---|
-| Gmail | `smtp.gmail.com` | 587 / STARTTLS | Hesap şifresi değil, [uygulama şifresi](https://myaccount.google.com/apppasswords) |
-| Outlook / Hotmail | `smtp-mail.outlook.com` | 587 / STARTTLS | |
-| Yandex | `smtp.yandex.com` | 465 / TLS | Uygulama şifresi |
+| Gmail | `smtp.gmail.com` | 587 / STARTTLS | [Uygulama şifresi](https://myaccount.google.com/apppasswords) |
+| iCloud Mail | `smtp.mail.me.com` | 587 / STARTTLS | Uygulamaya özel şifre |
+| Yandex Mail | `smtp.yandex.com` | 465 / TLS | Uygulama şifresi |
+
+Gmail hesap başına günde yaklaşık 500 ileti gönderilmesine izin verir; günlük özet için fazlasıyla yeterlidir.
 
 SMTP şifresi veritabanında saklanır ve arayüze hiçbir zaman geri gönderilmez. STARTTLS seçiliyken sunucu şifrelemeyi desteklemiyorsa şifre gönderilmeden bağlantı kesilir.
 

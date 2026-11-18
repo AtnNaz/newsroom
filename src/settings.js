@@ -79,6 +79,9 @@ export function validateSettings(input, current = DEFAULT_SETTINGS) {
           } else if ((ek === 'from' || ek === 'to') && (ev === '' || (typeof ev === 'string' && EMAIL.test(ev)))) e[ek] = ev;
           else errors.push(`email.${ek}`);
         }
+        e.user = e.user.trim();
+        // Google uygulama şifresini dörder harflik gruplar hâlinde gösterir; boşluklar şifrenin parçası değildir.
+        if (/(^|\.)gmail\.com$|(^|\.)googlemail\.com$/i.test(e.host)) e.pass = e.pass.replace(/\s+/g, '');
         if (e.enabled && (!e.host || !e.to || !(e.from || e.user))) errors.push('email.incomplete');
         value.email = e;
         break;

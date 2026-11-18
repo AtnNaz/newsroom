@@ -39,6 +39,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 html {
   -webkit-text-size-adjust: 100%;
 }
@@ -850,6 +854,10 @@ legend {
   display: grid;
   gap: 0.3rem;
   margin: 0.85rem 0;
+}
+
+.provider-hint .hint + .hint {
+  margin-top: 0.25rem;
 }
 
 .hint {

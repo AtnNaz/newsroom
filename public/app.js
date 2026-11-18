@@ -78,7 +78,22 @@ const hostOf = (u) => {
     return u;
   }
 };
-const errText = (err) => (err.fields ? t('settings.invalid', { fields: err.fields.join(', ') }) : `${t('common.error')}: ${err.code ?? err.message}${err.detail ? ` (${err.detail})` : ''}`);
+// Bilinen hata kodları (özellikle e-posta) okunur bir açıklamaya çevrilir.
+const errMessage = (code) => (t(`err.${code}`) !== `err.${code}` ? t(`err.${code}`) : null);
+const errText = (err) => {
+  if (err.fields) return t('settings.invalid', { fields: err.fields.join(', ') });
+  const known = errMessage(err.code);
+  if (known) return known;
+  return `${t('common.error')}: ${err.code ?? err.message}${err.detail ? ` (${err.detail})` : ''}`;
+};
+
+// Hazır e-posta sağlayıcıları: seçilince sunucu, port ve güvenlik kendiliğinden dolar.
+const MAIL_PROVIDERS = {
+  gmail: { host: 'smtp.gmail.com', port: 587, security: 'starttls', help: 'https://myaccount.google.com/apppasswords', user: 'ad@gmail.com' },
+  icloud: { host: 'smtp.mail.me.com', port: 587, security: 'starttls', help: 'https://account.apple.com/', user: 'ad@icloud.com' },
+  yandex: { host: 'smtp.yandex.com', port: 465, security: 'tls', help: 'https://id.yandex.com/security/app-passwords', user: 'ad@yandex.com' },
+};
+const providerOf = (host) => Object.keys(MAIL_PROVIDERS).find((k) => MAIL_PROVIDERS[k].host === host) ?? (host ? 'custom' : 'gmail');
 
 function toast(text, kind = 'info') {
   const el = h('div', { class: `toast toast-${kind}`, role: 'status' }, text);
@@ -327,7 +342,7 @@ async function viewToday(day) {
     return [h('section', { class: 'empty' }, h('p', { class: 'empty-title' }, t('today.empty')), h('p', { class: 'muted' }, t('today.emptyHint', { time })), buildBtn(t('today.build'))), prevNav];
   }
 
-  const emailLine = d.emailedAt ? t('today.emailed', { time: new Date(d.emailedAt).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' }) }) : d.emailError ? t('today.emailError', { error: d.emailError }) : null;
+  const emailLine = d.emailedAt ? t('today.emailed', { time: new Date(d.emailedAt).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' }) }) : d.emailError ? t('today.emailError', { error: errMessage(d.emailError) ?? d.emailError }) : null;
   const sendBtn = state.settings?.email.enabled
     ? h(
         'button',
@@ -633,6 +648,12 @@ async function viewSettings() {
     digestTime: h('input', { id: 'digestTime', type: 'time', value: s.digestTime, required: true }),
     digestSize: h('input', { id: 'digestSize', type: 'number', min: 5, max: 40, value: s.digestSize }),
     emailEnabled: h('input', { id: 'emailEnabled', type: 'checkbox', checked: s.email.enabled }),
+    provider: select('provider', providerOf(s.email.host), [
+      ['gmail', 'Gmail'],
+      ['icloud', 'iCloud Mail'],
+      ['yandex', 'Yandex Mail'],
+      ['custom', t('settings.mailCustom')],
+    ]),
     host: h('input', { id: 'host', type: 'text', value: s.email.host, autocomplete: 'off', placeholder: 'smtp.example.com' }),
     port: h('input', { id: 'port', type: 'number', min: 1, max: 65535, value: s.email.port }),
     security: select('security', s.email.security, [
@@ -645,6 +666,28 @@ async function viewSettings() {
     from: h('input', { id: 'from', type: 'email', value: s.email.from }),
     to: h('input', { id: 'to', type: 'email', value: s.email.to }),
   };
+
+  const serverFields = h('div', { class: 'row-fields' }, field('host', t('settings.smtpHost'), el.host), field('port', t('settings.smtpPort'), el.port), field('security', t('settings.smtpSecurity'), el.security));
+  const providerHint = h('div', { class: 'provider-hint' });
+  const applyProvider = (fill) => {
+    const id = el.provider.value;
+    const p = MAIL_PROVIDERS[id];
+    serverFields.hidden = Boolean(p);
+    el.user.placeholder = p?.user ?? '';
+    providerHint.replaceChildren();
+    if (!p) return;
+    if (fill) {
+      el.host.value = p.host;
+      el.port.value = p.port;
+      el.security.value = p.security;
+    }
+    providerHint.append(
+      h('p', { class: 'hint' }, t(`settings.mailHint.${id}`)),
+      h('p', { class: 'hint' }, h('a', { href: p.help, target: '_blank', rel: 'noopener noreferrer' }, t('settings.appPassword'), ' ', icon('ext'))),
+    );
+  };
+  el.provider.addEventListener('change', () => applyProvider(true));
+  applyProvider(!s.email.host);
 
   const ollamaLine = h('p', { class: `small ${models.ok ? 'muted' : 'error-text'}` }, models.ok ? t('settings.ollamaOk', { n: models.models.length }) : t('settings.ollamaDown', { error: models.error }));
   const rescoreBox = h('div', { class: 'rescore', hidden: true });
@@ -676,7 +719,7 @@ async function viewSettings() {
     digestEnabled: el.digestEnabled.checked,
     digestTime: el.digestTime.value,
     digestSize: Number(el.digestSize.value),
-    email: { enabled: el.emailEnabled.checked, host: el.host.value.trim(), port: Number(el.port.value), security: el.security.value, user: el.user.value, pass: el.pass.value, from: el.from.value.trim(), to: el.to.value.trim() },
+    email: { enabled: el.emailEnabled.checked, host: el.host.value.trim(), port: Number(el.port.value), security: el.security.value, user: el.user.value, pass: el.pass.value, from: el.from.value.trim(), to: el.to.value.trim() || (el.provider.value !== 'custom' ? el.user.value.trim() : '') },
   });
 
   async function save() {
@@ -742,9 +785,11 @@ async function viewSettings() {
       {},
       h('legend', {}, t('settings.email')),
       h('label', { class: 'check' }, el.emailEnabled, t('settings.emailEnabled')),
-      h('div', { class: 'row-fields' }, field('host', t('settings.smtpHost'), el.host), field('port', t('settings.smtpPort'), el.port), field('security', t('settings.smtpSecurity'), el.security)),
+      field('provider', t('settings.mailProvider'), el.provider),
+      providerHint,
+      serverFields,
       h('div', { class: 'row-fields' }, field('user', t('settings.smtpUser'), el.user), field('pass', t('settings.smtpPass'), el.pass)),
-      h('div', { class: 'row-fields' }, field('from', t('settings.smtpFrom'), el.from), field('to', t('settings.smtpTo'), el.to)),
+      h('div', { class: 'row-fields' }, field('from', t('settings.smtpFrom'), el.from, t('settings.smtpFromHint')), field('to', t('settings.smtpTo'), el.to, t('settings.smtpToHint'))),
       h(
         'p',
         {},

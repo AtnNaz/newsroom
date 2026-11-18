@@ -4,6 +4,7 @@ import net from 'node:net';
 import { once } from 'node:events';
 import { sendMail, buildMessage, encodeHeader } from '../src/smtp.js';
 import { renderDigestEmail } from '../src/mail.js';
+import { errorCode } from '../src/http.js';
 
 // Tek bağlantılık sahte SMTP sunucusu; konuşmayı ve iletinin gövdesini kaydeder.
 async function fakeSmtp({ auth = 'PLAIN LOGIN', starttls = false } = {}) {
@@ -110,4 +111,14 @@ test('özet e-postası metin ve HTML üretir, içerik kaçışlanır', () => {
   assert.match(mail.text, /https:\/\/haber\.example/);
   const en = renderDigestEmail(digest, { language: 'en' });
   assert.match(en.subject, /Wednesday, 18 November 2026/);
+});
+
+test('kapalı porta bağlantı anlaşılır bir hata kodu verir', async () => {
+  const srv = net.createServer();
+  srv.listen(0, '127.0.0.1');
+  await once(srv, 'listening');
+  const port = srv.address().port;
+  srv.close();
+  const err = await sendMail({ host: '127.0.0.1', port, security: 'none', to: 'a@example.com', from: 'b@example.com', subject: 's', text: 't' }).catch((e) => e);
+  assert.equal(errorCode(err), 'refused');
 });

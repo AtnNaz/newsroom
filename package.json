@@ -1,6 +1,6 @@
 {
   "name": "newsroom",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Kendi sunucunda çalışan, haberleri yerel yapay zekâ (Ollama) ile özetleyip ilgi alanına göre sıralayan kişisel haber odası",
   "author": {
     "name": "Ali Toprak Naz",
