@@ -1,9 +1,6 @@
 import { loadAffinity, groupClusters } from './rank.js';
 import { CATEGORIES } from './settings.js';
 
-// Günlük özet: son 24 saatin en önemli olayları, konularına göre bölümlenir ve modelin
-// yazdığı kısa bir giriş paragrafıyla saklanır.
-
 const DAY = 24 * 3600_000;
 const LANG_NAME = { tr: 'Turkish (Türkçe)', en: 'English' };
 const pad = (n) => String(n).padStart(2, '0');
@@ -42,8 +39,6 @@ export function digestRows(db, now = Date.now()) {
     .all(now - DAY);
 }
 
-// Kümelenmiş, puanlanmış haberlerden özete girecekleri seçer. İlgi puanı eşiğin altındakiler
-// atlanır; ama özet hiçbir zaman beşten az haberle kalmaz.
 export function selectStories(groups, { digestSize = 15, minRelevance = 30, interests = [] } = {}) {
   const passes = (g) => !interests.length || g.lead.relevance == null || g.lead.relevance >= minRelevance;
   const picked = groups.filter(passes).slice(0, digestSize);

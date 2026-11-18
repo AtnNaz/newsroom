@@ -1,9 +1,5 @@
 import { decodeEntities, htmlToText, resolveUrl } from './html.js';
 
-// RSS 2.0, RSS 1.0 (RDF) ve Atom beslemelerini okuyan küçük, hoşgörülü bir XML ayrıştırıcısı.
-// Bozuk beslemelerde de mümkün olduğunca çok öğe çıkarmaya çalışır.
-
-// XML'i { name, attrs, children, text } düğümlerinden oluşan ağaca çevirir.
 export function parseXml(xml) {
   const root = { name: '#root', attrs: {}, children: [], text: '' };
   const stack = [root];
@@ -15,7 +11,6 @@ export function parseXml(xml) {
     if (m[1] !== undefined) top.text += m[1];
     else if (m[2]) {
       const name = m[2].toLowerCase();
-      // Kapanmamış etiketler hoş görülür: eşleşen açık etikete kadar yığın boşaltılır.
       const i = stack.findLastIndex((n) => n.name === name);
       if (i > 0) stack.length = i;
     } else if (m[3]) {
@@ -73,10 +68,8 @@ function itemImage(item, html, base) {
 
 const clean = (s, max) => htmlToText(s).replace(/\s+/g, ' ').trim().slice(0, max);
 
-// Besleme metnini { title, link, items } biçimine çevirir; bilinmeyen biçimde hata verir.
 export function parseFeed(xml, feedUrl) {
   const root = parseXml(xml);
-  // Belgenin kök öğesine göre biçim seçilir (Atom içinde gömülü RSS ya da tersi karışmasın).
   const top = root.children.find((c) => ['feed', 'rss', 'rdf:rdf'].includes(c.name)) ?? null;
   const atom = top?.name === 'feed' ? top : null;
   const rdf = top?.name === 'rdf:rdf' ? top : null;
@@ -136,7 +129,6 @@ export function parseFeed(xml, feedUrl) {
   };
 }
 
-// Bir web sayfasındaki besleme bağlantılarını bulur (<link rel="alternate" type="application/rss+xml">).
 export function discoverFeeds(html, pageUrl) {
   const out = [];
   for (const m of String(html ?? '').matchAll(/<link\b[^>]*>/gi)) {

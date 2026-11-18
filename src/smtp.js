@@ -3,13 +3,9 @@ import tls from 'node:tls';
 import { once } from 'node:events';
 import crypto from 'node:crypto';
 
-// Bağımlılıksız küçük bir SMTP istemcisi: doğrudan TLS (465) ya da STARTTLS (587),
-// AUTH PLAIN/LOGIN, UTF-8 içerikli multipart/alternative ileti.
-
 const b64 = (s) => Buffer.from(s, 'utf8').toString('base64');
 const wrap76 = (s) => s.replace(/.{1,76}/g, '$&\r\n').trimEnd();
 
-// RFC 2047 kodlu başlık; uzun metin, karakter ortasından bölünmeyecek parçalara ayrılır.
 export function encodeHeader(value) {
   if (/^[\x20-\x7e]*$/.test(value)) return value;
   const words = [];
@@ -45,7 +41,6 @@ export function buildMessage({ from, fromName = 'Newsroom', to, subject, text, h
   return [...headers, `Content-Type: multipart/alternative; boundary="${boundary}"`, '', ...parts, `--${boundary}--`, ''].join('\r\n');
 }
 
-// Sunucu yanıtlarını satır satır okur; "250-" ile devam eden çok satırlı yanıtları birleştirir.
 function responseReader() {
   let buf = '';
   let lines = [];
@@ -100,8 +95,6 @@ function responseReader() {
 export async function sendMail({ host, port, security = 'starttls', user = '', pass = '', from, to, subject, text, html, timeoutMs = 30_000, tlsOptions = {}, clientName = 'newsroom.localdomain' }) {
   const sender = from || user;
   if (!host || !to || !sender) throw Object.assign(new Error('email_incomplete'), { code: 'email_incomplete' });
-  // 465 numaralı port her zaman doğrudan TLS ister; orada STARTTLS seçilmişse iki taraf da
-  // karşı tarafın konuşmasını bekler ve bağlantı zaman aşımına düşer. Bu yaygın karışıklık düzeltilir.
   if (Number(port) === 465 && security === 'starttls') security = 'tls';
   let socket = security === 'tls' ? tls.connect({ host, port, servername: host, ...tlsOptions }) : net.connect({ host, port });
   const reader = responseReader();
@@ -111,7 +104,6 @@ export async function sendMail({ host, port, security = 'starttls', user = '', p
     const code = greeted ? 'timeout' : 'no_greeting';
     socket.destroy(Object.assign(new Error(code), { code }));
   }, timeoutMs);
-  // Sunucu karşılama satırını göndermezse port ile güvenlik türü büyük olasılıkla uyuşmuyordur.
   const greetTimer = setTimeout(() => {
     if (!greeted) socket.destroy(Object.assign(new Error('no_greeting'), { code: 'no_greeting' }));
   }, Math.min(15_000, timeoutMs));

@@ -1,9 +1,6 @@
 import { t, LOCALES } from '../public/i18n.js';
 import { sendMail } from './smtp.js';
 
-// Günlük özetin e-posta hâli. E-posta istemcileri harici CSS desteklemediği için biçim satır
-// içi stillerle verilir; görseller gömülmez, yalnızca bağlantılar vardır.
-
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const safeUrl = (u) => (/^https?:\/\//i.test(u ?? '') ? u : '#');
 

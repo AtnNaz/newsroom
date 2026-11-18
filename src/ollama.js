@@ -1,5 +1,3 @@
-// Ollama istemcisi: model listesi, yapılandırılmış (JSON şemalı) sohbet ve gömme vektörleri.
-
 export function createOllama({ url, fetchImpl = fetch, timeoutMs = 5 * 60_000 }) {
   const api = (p) => new URL(p, url.endsWith('/') ? url : `${url}/`);
 
@@ -19,7 +17,6 @@ export function createOllama({ url, fetchImpl = fetch, timeoutMs = 5 * 60_000 })
       const data = await res.json();
       return (data.models ?? []).map((m) => ({ name: m.name, size: m.size ?? null, family: m.details?.family ?? null, parameterSize: m.details?.parameter_size ?? null }));
     },
-    // Yanıt şemaya uygun JSON olarak istenir; düşünme (think) kapatılır, desteklemeyen modelde alan çıkarılır.
     async chatJson({ model, messages, schema, temperature = 0.2, numCtx = 8192 }) {
       const body = { model, messages, stream: false, think: false, format: schema, keep_alive: '10m', options: { temperature, num_ctx: numCtx } };
       let data;

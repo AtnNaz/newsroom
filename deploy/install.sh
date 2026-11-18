@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Newsroom kurulumu (systemd kullanan Linux dağıtımları). Tekrar çalıştırmak günceller;
-# ayar dosyası ve veritabanı korunur.
 set -euo pipefail
 
 APP_DIR=/opt/newsroom
@@ -52,7 +50,6 @@ JSON
   echo "• $CONF oluşturuldu (port 8077)"
 fi
 
-# Komut satırı aracı her zaman newsroom kullanıcısıyla çalışır (veritabanının sahibi o).
 cat >/usr/local/bin/newsroom <<'WRAP'
 #!/bin/sh
 cmd="node --disable-warning=ExperimentalWarning /opt/newsroom/bin/newsroom.js"

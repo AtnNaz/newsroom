@@ -1,7 +1,3 @@
-// HTML ve XML metinleri için küçük yardımcılar: varlık çözme, etiket ayıklama, düz metne çevirme.
-// Ek paket kullanılmaz; amaç haber sayfalarından okunur bir metin çıkarmaktır, tam bir HTML
-// ayrıştırıcısı değil.
-
 const NAMED = {
   amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', ndash: '–', mdash: '—', hellip: '…',
   lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”', laquo: '«', raquo: '»', bull: '•', middot: '·', copy: '©',
@@ -24,7 +20,6 @@ export function decodeEntities(text) {
 
 const BLOCK = /<\/?(p|div|br|li|ul|ol|h[1-6]|blockquote|section|article|tr|figure|figcaption|pre|hr)\b[^>]*>/gi;
 
-// HTML parçasını paragraflı düz metne çevirir.
 export function htmlToText(html) {
   return decodeEntities(
     String(html ?? '')
@@ -41,7 +36,6 @@ export function htmlToText(html) {
 
 export const stripTags = (html) => htmlToText(html).replace(/\s+/g, ' ').trim();
 
-// <meta property="og:image" content="..."> ve <meta name="..."> değerleri
 export function metaTags(html) {
   const out = {};
   for (const m of String(html).matchAll(/<meta\b[^>]*>/gi)) {
@@ -65,9 +59,6 @@ export function resolveUrl(href, base) {
 const NOISE = /<(script|style|noscript|svg|template|iframe|nav|header|footer|aside|form|button|select|figure)\b[\s\S]*?<\/\1>/gi;
 const NOISE_CLASS = /\b(comment|share|social|related|newsletter|subscribe|advert|promo|cookie|footer|sidebar|breadcrumb|tags?|author-box|recommend)/i;
 
-// Haber sayfasından başlık, ana metin, görsel ve yayın zamanı çıkarır.
-// Yöntem: gürültülü bölümler atılır, <p> paragrafları sıralarına göre kümelenir ve en çok
-// metin içeren küme ana metin sayılır. <article> varsa önce onun içine bakılır.
 export function extractArticle(html, pageUrl) {
   const source = String(html ?? '');
   const meta = metaTags(source);
@@ -88,7 +79,6 @@ export function extractArticle(html, pageUrl) {
     if (text.length < 40) continue;
     paragraphs.push({ at: m.index, text });
   }
-  // Birbirine yakın paragraflar aynı kümeye girer (aradaki HTML 3500 karakterden kısaysa).
   const clusters = [];
   for (const p of paragraphs) {
     const last = clusters.at(-1);

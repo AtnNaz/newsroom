@@ -1,6 +1,3 @@
-// Arayüzden değiştirilebilen ayarlar ve doğrulamaları. Ollama adresi, sunucu portu ve şifre
-// gibi kurulum ayarları config.json'da durur (bkz. config.js).
-
 export const CATEGORIES = ['ai', 'tech', 'software', 'hardware', 'science', 'space', 'security', 'games', 'business', 'economy', 'politics', 'world', 'turkey', 'health', 'sports', 'culture', 'auto', 'other'];
 export const LANGUAGES = ['tr', 'en'];
 export const FETCH_MINUTES = [15, 30, 60, 120, 240];
@@ -26,7 +23,6 @@ const HOST = /^(?=.{1,253}$)[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?$/;
 const EMAIL = /^[^\s@<>"',;]{1,64}@[A-Za-z0-9.-]{1,253}\.[A-Za-z]{2,}$/;
 const str = (v, max) => typeof v === 'string' && v.length <= max && !/[\0\r\n]/.test(v);
 
-// Yalnızca bilinen alanlar kabul edilir. pass boş bırakılırsa kayıtlı şifre korunur.
 export function validateSettings(input, current = DEFAULT_SETTINGS) {
   const errors = [];
   const value = {};
@@ -80,7 +76,6 @@ export function validateSettings(input, current = DEFAULT_SETTINGS) {
           else errors.push(`email.${ek}`);
         }
         e.user = e.user.trim();
-        // Google uygulama şifresini dörder harflik gruplar hâlinde gösterir; boşluklar şifrenin parçası değildir.
         if (/(^|\.)gmail\.com$|(^|\.)googlemail\.com$/i.test(e.host)) e.pass = e.pass.replace(/\s+/g, '');
         if (e.enabled && (!e.host || !e.to || !(e.from || e.user))) errors.push('email.incomplete');
         value.email = e;
@@ -93,7 +88,6 @@ export function validateSettings(input, current = DEFAULT_SETTINGS) {
   return { errors, value };
 }
 
-// Arayüze giden ayarlar: e-posta şifresi gönderilmez, yalnızca kayıtlı olup olmadığı.
 export function publicSettings(s) {
   const { pass, ...email } = s.email;
   return { ...s, email: { ...email, passSet: Boolean(pass) } };

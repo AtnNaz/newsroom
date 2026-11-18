@@ -1,10 +1,5 @@
 import { CATEGORIES } from './settings.js';
 
-// Bir haberi yerel modele okutur: başlık (gerekirse çeviri), kısa özet, konu, etiketler ve
-// okurun ilgi alanlarına göre 0-100 arası bir puan. Model yalnızca şemaya uyan JSON döndürür.
-// Küçük modeller tek bir genel puanı tutarsız verdiği için her ilgi alanı ayrı ayrı 0-10
-// puanlanır; haberin puanı en yüksek eşleşmeden hesaplanır.
-
 const LANG_NAME = { tr: 'Turkish (Türkçe)', en: 'English' };
 export const MAX_INPUT_CHARS = 6000;
 const score10 = { type: 'integer', minimum: 0, maximum: 10 };
@@ -65,14 +60,12 @@ const rating = (v) => {
   return Number.isFinite(n) ? Math.min(10, Math.max(0, n)) : 0;
 };
 
-// İlgi puanı: en iyi eşleşme ×10, birden fazla alana dokunan haber için küçük bir ek.
 export function relevanceFrom(raw, interests = []) {
   if (!interests.length) return rating(raw?.importance) * 10;
   const ratings = interests.map((_, i) => rating(raw?.interests?.[String(i + 1)])).sort((a, b) => b - a);
   return Math.min(100, ratings[0] * 10 + Math.min(ratings[1] ?? 0, 5));
 }
 
-// Model çıktısını doğrular ve sınırlar; uydurma kategori ya da aralık dışı puan kabul edilmez.
 export function normalizeAnalysis(raw, article = {}, interests = []) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('invalid_model_output');
   const summary = clean(raw.summary, 1200);
@@ -95,6 +88,4 @@ export async function analyzeArticle(ollama, article, settings) {
   return normalizeAnalysis(raw, article, interests);
 }
 
-// Gömme vektörü için kısa metin: çevrilmiş başlık ve özet aynı dilde olduğu için kaynaklar
-// farklı dillerde yazsa da aynı olay birbirine yakın düşer.
 export const embeddingText = (a) => `${a.title_local || a.title}\n${a.summary ?? ''}`.slice(0, 2000);

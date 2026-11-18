@@ -1,9 +1,6 @@
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 
-// Kurulum ayarları: config.json + ortam değişkenleri (ortam değişkeni önceliklidir).
-// Okuma tercihleri (dil, ilgi alanları, model, e-posta...) arayüzden değişir ve veritabanında durur.
-
 export const DEFAULT_CONFIG = {
   host: '127.0.0.1',
   port: 8077,
@@ -51,7 +48,6 @@ export function loadConfig(file, env = process.env) {
     if (env[name] === undefined || env[name] === '') continue;
     c[key] = typeof DEFAULT_CONFIG[key] === 'boolean' ? /^(1|true|yes)$/i.test(env[name]) : typeof DEFAULT_CONFIG[key] === 'number' ? Number(env[name]) : env[name];
   }
-  // Düz şifre yalnızca ortam değişkeninden alınır (Docker için); dosyada hiç tutulmaz.
   c.password = env.NEWSROOM_PASSWORD || '';
 
   const errors = [];

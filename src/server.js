@@ -50,7 +50,6 @@ async function readJson(req, limit = 2_000_000) {
 
 const cookies = (req) => Object.fromEntries((req.headers.cookie ?? '').split(';').map((c) => c.trim().split('=')).filter((p) => p.length === 2));
 
-// Static dosyalar başlangıçta belleğe alınır; ETag ile tarayıcı önbelleği doğrulanır.
 function loadStatic() {
   const files = new Map();
   for (const name of ['index.html', 'app.js', 'i18n.js', 'style.css', 'favicon.svg', 'manifest.webmanifest']) {
@@ -336,7 +335,6 @@ export function createServer(app) {
   const clientIp = (req) => (config.trustProxy ? (req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() : '') || req.socket.remoteAddress || '';
   const isHttps = (req) => req.socket.encrypted || (config.trustProxy && req.headers['x-forwarded-proto'] === 'https');
 
-  // Durum değiştiren isteklerde Origin başlığı varsa sunucunun kendi adresiyle aynı olmalı.
   function sameOrigin(req) {
     const origin = req.headers.origin;
     if (!origin) return true;

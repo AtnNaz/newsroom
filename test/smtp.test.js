@@ -6,7 +6,6 @@ import { sendMail, buildMessage, encodeHeader } from '../src/smtp.js';
 import { renderDigestEmail } from '../src/mail.js';
 import { errorCode } from '../src/http.js';
 
-// Tek bağlantılık sahte SMTP sunucusu; konuşmayı ve iletinin gövdesini kaydeder.
 async function fakeSmtp({ auth = 'PLAIN LOGIN', starttls = false } = {}) {
   const log = [];
   let data = '';

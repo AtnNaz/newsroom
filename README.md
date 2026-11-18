@@ -68,7 +68,26 @@ echo "NEWSROOM_PASSWORD=uzun-bir-sifre" > .env
 docker compose up -d
 ```
 
-Ollama aynı makinede çalışıyorsa konteynerden `host.docker.internal:11434` adresiyle ulaşılır; bunun için Ollama'nın yalnızca 127.0.0.1'i değil bütün arayüzleri dinlemesi gerekir (`OLLAMA_HOST=0.0.0.0`). Ollama'yı da konteynerde çalıştırmak için `docker-compose.yml` içindeki `ollama` bölümünü açın.
+Ollama aynı makinede çalışıyorsa konteynerden `host.docker.internal:11434` adresiyle ulaşılır; bunun için Ollama'nın yalnızca 127.0.0.1'i değil bütün arayüzleri dinlemesi gerekir (`OLLAMA_HOST=0.0.0.0`). E-postadaki "Newsroom'da aç" bağlantısı için `NEWSROOM_BASE_URL` ortam değişkenini ekleyebilirsiniz.
+
+Ollama'yı da konteynerde çalıştırmak için `docker-compose.yml` dosyasına şu servisi ekleyin ve `OLLAMA_URL` değerini `http://ollama:11434` yapın (NVIDIA ekran kartı için `deploy` bölümü gerekir):
+
+```yaml
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+```
+
+En alttaki `volumes:` bölümüne de `ollama:` satırını ekleyin.
 
 ### Elle
 

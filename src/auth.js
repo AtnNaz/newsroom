@@ -1,8 +1,5 @@
 import crypto from 'node:crypto';
 
-// Tek kullanıcılı şifre girişi. Şifre scrypt ile saklanır; oturum anahtarının yalnızca SHA-256
-// özeti veritabanına yazılır, böylece veritabanı sızsa bile oturumlar çalınamaz.
-
 const SCRYPT = { N: 16384, r: 8, p: 1 };
 const SESSION_DAYS = 30;
 export const COOKIE = 'nr_session';
@@ -36,14 +33,12 @@ export function setStoredPassword(db, password) {
 }
 
 export function createAuth({ db, config }) {
-  // Öncelik: NEWSROOM_PASSWORD > config.passwordHash > `newsroom password` ile kaydedilen şifre.
   const envHash = config.password ? hashPassword(config.password) : '';
   const currentHash = () => envHash || config.passwordHash || storedPasswordHash(db);
   const attempts = new Map();
 
   return {
     required: () => Boolean(currentHash()),
-    // Aynı adresten 15 dakikada en fazla 10 hatalı deneme.
     limited(ip, now = Date.now()) {
       const a = attempts.get(ip);
       return Boolean(a && a.reset > now && a.count >= 10);
@@ -66,7 +61,6 @@ export function createAuth({ db, config }) {
       if (!token || token.length > 100) return false;
       const row = db.prepare('SELECT expires FROM sessions WHERE token_hash = ?').get(digest(token));
       if (!row || row.expires < now) return false;
-      // Kullanıldıkça süre uzar; günde en fazla bir yazma.
       if (row.expires - now < (SESSION_DAYS - 1) * 86400_000) db.prepare('UPDATE sessions SET expires = ? WHERE token_hash = ?').run(now + SESSION_DAYS * 86400_000, digest(token));
       return true;
     },

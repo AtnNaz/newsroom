@@ -1,6 +1,3 @@
-// Arayüz ve e-posta metinleri. Sunucu da bu dosyayı içe aktarır (e-posta, konu başlıkları),
-// bu yüzden tarayıcıya özgü bir şey içermez.
-
 export const STRINGS = {
   tr: {
     'nav.today': 'Bugün',

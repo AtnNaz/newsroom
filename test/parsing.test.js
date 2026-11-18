@@ -74,7 +74,7 @@ test('haber sayfasından ana metin çıkarılır, gürültü atılır', () => {
 });
 
 test('karakter kümesi algılanır', () => {
-  const latin5 = Buffer.from([0x3c, 0x70, 0x3e, 0xfe, 0xf0, 0xfd]); // <p>şğı (windows-1254)
+  const latin5 = Buffer.from([0x3c, 0x70, 0x3e, 0xfe, 0xf0, 0xfd]);
   assert.equal(decodeBody(latin5, 'text/html; charset=windows-1254'), '<p>şğı');
   const xml = Buffer.concat([Buffer.from('<?xml version="1.0" encoding="ISO-8859-9"?><a>'), Buffer.from([0xdd]), Buffer.from('</a>')]);
   assert.match(decodeBody(xml, 'application/xml'), /İ/);

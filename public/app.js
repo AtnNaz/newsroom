@@ -1,8 +1,5 @@
 import { t as translate, LOCALES } from './i18n.js';
 
-// Newsroom arayüzü: bağımlılıksız, hash tabanlı yönlendirme. DOM yalnızca h() ile kurulur;
-// sunucudan gelen metin hiçbir zaman innerHTML ile basılmaz.
-
 const state = { lang: 'tr', session: null, status: null, settings: null, feed: { sort: 'score', category: '', q: '' } };
 const t = (k, v) => translate(state.lang, k, v);
 const $app = document.getElementById('app');
@@ -78,7 +75,6 @@ const hostOf = (u) => {
     return u;
   }
 };
-// Bilinen hata kodları (özellikle e-posta) okunur bir açıklamaya çevrilir.
 const errMessage = (code) => (t(`err.${code}`) !== `err.${code}` ? t(`err.${code}`) : null);
 const errText = (err) => {
   if (err.fields) return t('settings.invalid', { fields: err.fields.join(', ') });
@@ -87,7 +83,6 @@ const errText = (err) => {
   return `${t('common.error')}: ${err.code ?? err.message}${err.detail ? ` (${err.detail})` : ''}`;
 };
 
-// Hazır e-posta sağlayıcıları: seçilince sunucu, port ve güvenlik kendiliğinden dolar.
 const MAIL_PROVIDERS = {
   gmail: { host: 'smtp.gmail.com', port: 587, security: 'starttls', help: 'https://myaccount.google.com/apppasswords', user: 'ad@gmail.com' },
   icloud: { host: 'smtp.mail.me.com', port: 587, security: 'starttls', help: 'https://account.apple.com/', user: 'ad@icloud.com' },
@@ -100,8 +95,6 @@ function toast(text, kind = 'info') {
   document.body.append(el);
   setTimeout(() => el.remove(), 4200);
 }
-
-// --- Giriş ---
 
 function renderLogin(message = '') {
   stopPolling();
@@ -132,8 +125,6 @@ function renderLogin(message = '') {
   $app.replaceChildren(h('main', { class: 'login-wrap' }, form));
   input.focus();
 }
-
-// --- Kabuk ---
 
 const VIEWS = [
   ['today', '#/'],
@@ -178,8 +169,6 @@ function setActiveNav(view) {
   for (const a of document.querySelectorAll('.nav a')) a.toggleAttribute('aria-current', a.dataset.view === view);
 }
 
-// --- Durum çubuğu ---
-
 let pollTimer = null;
 function stopPolling() {
   clearInterval(pollTimer);
@@ -201,8 +190,6 @@ async function pollStatus() {
   $status.textContent = parts.join(' · ');
   $status.classList.toggle('status-warn', s.ollama.ok === false);
 }
-
-// --- Haber kartları ---
 
 function sourcesLine(item) {
   const n = (item.others?.length ?? 0) + 1;
@@ -257,8 +244,6 @@ function articleCard(item) {
   return card;
 }
 
-// --- Okuyucu ---
-
 async function openReader(id, preview) {
   $reader.replaceChildren(h('p', { class: 'muted pad' }, t('common.loading')));
   if (!$reader.open) $reader.showModal();
@@ -304,8 +289,6 @@ async function openReader(id, preview) {
 $reader.addEventListener('click', (e) => {
   if (e.target === $reader) $reader.close();
 });
-
-// --- Görünümler ---
 
 async function viewToday(day) {
   const data = await api('GET', `digests/${day ?? 'today'}`);
@@ -687,7 +670,6 @@ async function viewSettings() {
     );
   };
   el.provider.addEventListener('change', () => applyProvider(true));
-  // Port ile güvenlik türü birlikte değişir: 465 → TLS, 587/25 → STARTTLS.
   el.port.addEventListener('change', () => {
     const port = Number(el.port.value);
     if (port === 465) el.security.value = 'tls';
@@ -829,8 +811,6 @@ async function viewSettings() {
   );
   return [form, h('p', { class: 'muted small about' }, `Newsroom v${state.session.version} · `, h('a', { href: 'https://github.com/AtnNaz/newsroom', target: '_blank', rel: 'noopener noreferrer' }, 'GitHub'))];
 }
-
-// --- Yönlendirme ---
 
 let routeSeq = 0;
 let lastView = null;

@@ -1,8 +1,3 @@
-// Aynı olayı anlatan haberleri bir araya toplar. Gömme modeli varsa vektörlerin kosinüs
-// benzerliği, yoksa başlık ve etiketlerdeki kelime köklerinin örtüşmesi (Jaccard) kullanılır.
-
-// bge-m3 ile gerçek haberlerde ölçüldü: aynı olay 0,78-0,84; aynı konuda farklı haberler
-// (ör. iki markanın fiyat listesi) 0,75'e kadar çıkıyor.
 export const EMBED_THRESHOLD = 0.76;
 export const TOKEN_THRESHOLD = 0.42;
 export const CLUSTER_WINDOW_MS = 48 * 3600_000;
@@ -16,8 +11,6 @@ const STOP = new Set(
   ).split(/\s+/),
 );
 
-// Türkçe eklemeli bir dil olduğu için kelimelerin ilk 6 harfi kök yerine kullanılır. Büyük harfli
-// yazımlar (NVIDIA / Nvidia) aynı sonuca insin diye noktasız ı, i'ye çevrilir.
 export function titleTokens(...parts) {
   const out = new Set();
   for (const part of parts.flat()) {
@@ -63,8 +56,6 @@ const parseTags = (t) => {
   }
 };
 
-// Yeni analiz edilen haberin kümesini bulur: en benzer adayın kümesine katılır, yoksa kendi
-// kümesini başlatır. Adaylar aynı zaman penceresindeki analiz edilmiş haberlerdir.
 export function chooseCluster(article, candidates) {
   const ea = fromBlob(article.embedding);
   const ta = titleTokens(article.title_local || article.title, parseTags(article.tags));

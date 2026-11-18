@@ -2,7 +2,6 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, chmodSync, existsSync } from 'node:fs';
 import path from 'node:path';
 
-// Bütün veriler tek bir SQLite dosyasında durur: kaynaklar, haberler, günlük özetler ve ayarlar.
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS sources (
   id INTEGER PRIMARY KEY,
@@ -86,7 +85,6 @@ export function openDb(file) {
   return db;
 }
 
-// Ayarlar JSON olarak saklanır; bilinmeyen anahtar varsayılandan gelir.
 export function createSettings(db, defaults) {
   const get = db.prepare('SELECT value FROM settings WHERE key = ?');
   const set = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
@@ -97,9 +95,7 @@ export function createSettings(db, defaults) {
         if (Object.hasOwn(defaults, row.key)) {
           try {
             out[row.key] = JSON.parse(row.value);
-          } catch {
-            /* bozuk değer: varsayılan kalır */
-          }
+          } catch {}
         }
       }
       return out;

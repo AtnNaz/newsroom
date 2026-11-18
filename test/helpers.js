@@ -4,8 +4,6 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-// Testler internete çıkmaz: beslemeler, haber sayfaları ve Ollama yerel sahte sunuculardır.
-
 export async function listen(handler) {
   const server = http.createServer(handler);
   server.listen(0, '127.0.0.1');
@@ -39,8 +37,6 @@ export const articlePage = (title, paragraphs) => `<!doctype html><html lang="tr
 <aside class="related"><p>İlgili haberler listesi burada yer alıyor ve ana metne girmemeli.</p></aside>
 <footer><p>Telif hakkı Örnek Haber 2026, tüm hakları saklıdır ve bu metin alınmamalı.</p></footer></body></html>`;
 
-// Sahte Ollama: başlıkta "yapay zeka" geçen haberlere yüksek ilgi verir, gömme vektörü olarak
-// başlıktaki anahtar kelimeleri kullanır.
 export async function fakeOllama({ models = ['test-model:7b', 'embed-model'] } = {}) {
   const calls = { chat: 0, embed: 0 };
   const srv = await listen(async (req, res) => {

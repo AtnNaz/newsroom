@@ -8,9 +8,6 @@ import { buildDigest, getDigest, localDay, minutesOfDay, parseTime, markEmailed 
 import { emailDigest } from './mail.js';
 import { errorCode } from './http.js';
 
-// Uygulamanın parçalarını birbirine bağlar ve zamanlayıcıyı çalıştırır: kaynak yenileme,
-// analiz kuyruğu, günlük özet ve e-posta, eski haberlerin silinmesi.
-
 const TICK_MS = 30_000;
 const DIGEST_WAIT_MIN = 30;
 
@@ -49,8 +46,6 @@ export function createApp(config, { log = (m) => console.log(m), fetchImpl } = {
     }
   }
 
-  // Özet saati geldiyse ve bugünün özeti yoksa: kuyrukta son 24 saatin haberleri bekliyorsa
-  // en fazla 30 dakika daha beklenir, sonra eldekilerle hazırlanır.
   function digestDue(now) {
     const s = settings.all();
     if (!s.digestEnabled || sched.digestBusy) return false;

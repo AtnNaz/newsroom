@@ -1,5 +1,3 @@
-/* Newsroom — gazete düzeni: serif başlıklar, ince çizgiler, tek vurgu rengi. */
-
 :root {
   --paper: #f6f3ec;
   --card: #fffdf8;
@@ -90,8 +88,6 @@ summary:focus-visible {
 .error-text {
   color: var(--danger);
 }
-
-/* --- Başlık --- */
 
 .masthead {
   max-width: var(--measure);
@@ -190,8 +186,6 @@ summary:focus-visible {
 .status-warn {
   color: var(--danger);
 }
-
-/* --- Düğmeler ve form --- */
 
 .btn {
   display: inline-flex;
@@ -399,8 +393,6 @@ label {
   color: var(--paper);
 }
 
-/* --- Ortak yazı öğeleri --- */
-
 .kicker,
 .section-label {
   font: 700 0.72rem var(--sans);
@@ -441,8 +433,6 @@ label {
 .empty .btn {
   margin-top: 1rem;
 }
-
-/* --- Bugün --- */
 
 .digest-head {
   max-width: 760px;
@@ -565,8 +555,6 @@ label {
   font-size: 0.9rem;
 }
 
-/* --- Akış kartları --- */
-
 .list {
   border-top: 1px solid var(--rule-strong);
 }
@@ -643,8 +631,6 @@ label {
     flex: 1 1 100%;
   }
 }
-
-/* --- Okuyucu --- */
 
 dialog {
   width: min(760px, calc(100vw - 1.5rem));
@@ -753,8 +739,6 @@ dialog::backdrop {
   margin: 0 0 1em;
 }
 
-/* --- Kaynaklar --- */
-
 .add-source {
   display: grid;
   gap: 0.5rem;
@@ -829,8 +813,6 @@ dialog::backdrop {
   }
 }
 
-/* --- Ayarlar --- */
-
 .settings {
   max-width: 720px;
 }
@@ -884,8 +866,6 @@ legend {
   margin-top: 2rem;
 }
 
-/* --- Giriş --- */
-
 .login-wrap {
   flex: 1;
   display: grid;
@@ -906,8 +886,6 @@ legend {
   padding-bottom: 0.75rem;
   margin-bottom: 1rem;
 }
-
-/* --- Bildirim --- */
 
 .toast {
   position: fixed;

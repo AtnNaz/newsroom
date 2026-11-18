@@ -2,16 +2,11 @@ import dns from 'node:dns/promises';
 import net from 'node:net';
 import { readFileSync } from 'node:fs';
 
-// Dış kaynaklardan besleme ve haber sayfası indirir. Beslemeler kullanıcı tarafından
-// eklense de içlerindeki bağlantılar başkasının elindedir; bu yüzden varsayılan olarak yerel
-// ağdaki adreslere (127.0.0.1, 192.168.x.x, bulut meta veri adresi...) istek gönderilmez.
-
 const VERSION = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 export const USER_AGENT = `Newsroom/${VERSION} (+https://github.com/AtnNaz/newsroom)`;
 
 function ipv4Private(ip) {
   const [a, b, c] = ip.split('.').map(Number);
-  // 192.0.0.0/24 ve 192.0.2.0/24 ayrılmıştır; 192.0.x'in geri kalanı herkese açıktır (ör. WordPress VIP).
   return a === 0 || a === 10 || a === 127 || a >= 224 || (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 192 && b === 0 && (c === 0 || c === 2)) || (a === 198 && (b === 18 || b === 19)) || (a === 198 && b === 51 && c === 100) || (a === 203 && b === 0 && c === 113);
 }
 
@@ -30,7 +25,6 @@ async function assertPublic(url) {
   if (!addrs.length || addrs.some((a) => isPrivateAddress(a.address))) throw Object.assign(new Error('blocked_address'), { code: 'blocked_address' });
 }
 
-// Bayt dizisini doğru karakter kümesiyle metne çevirir (HTTP başlığı, BOM, XML bildirimi, meta).
 export function decodeBody(buf, contentType = '') {
   if (buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf) return new TextDecoder('utf-8').decode(buf.subarray(3));
   const head = Buffer.from(buf.subarray(0, 4096)).toString('latin1');
@@ -48,7 +42,6 @@ export function decodeBody(buf, contentType = '') {
 
 const fail = (code, extra) => Object.assign(new Error(code), { code, ...extra });
 
-// Yönlendirmeler elle izlenir ki her adımda adres yeniden denetlensin. 304 yanıtı gövdesiz döner.
 export async function fetchResource(url, { headers = {}, accept = '*/*', maxBytes = 5_000_000, timeoutMs = 20_000, allowPrivate = false, fetchImpl = fetch } = {}) {
   let current = new URL(url);
   const signal = AbortSignal.timeout(timeoutMs);
@@ -93,11 +86,9 @@ export async function fetchResource(url, { headers = {}, accept = '*/*', maxByte
   throw fail('too_many_redirects');
 }
 
-// Hata kodunu arayüzde gösterilecek kısa bir açıklamaya indirger.
 export function errorCode(err) {
   if (err?.code && typeof err.code === 'string' && /^[a-z_0-9]+$/.test(err.code)) return err.code;
   if (err?.name === 'TimeoutError' || err?.name === 'AbortError') return 'timeout';
-  // fetch hataları sistem kodunu cause içinde, net/tls soketleri doğrudan hatanın üzerinde taşır.
   const cause = err?.cause?.code ?? err?.code;
   if (cause === 'ENOTFOUND' || cause === 'EAI_AGAIN') return 'dns';
   if (cause === 'ECONNREFUSED') return 'refused';

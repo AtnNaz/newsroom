@@ -91,7 +91,6 @@ test('indir → tam metin → analiz → kümele → günlük özet', async () =
     assert.notEqual(rows[2].cluster_id, rows[0].cluster_id);
     assert.equal(ollama.calls.embed, 3);
 
-    // İkinci yenileme: ETag eşleşir, gövde indirilmez, kopya eklenmez.
     assert.equal((await pipeline.refreshAll()).added, 0);
     assert.equal(site.hits.notModified, 1);
 
@@ -103,7 +102,6 @@ test('indir → tam metin → analiz → kümele → günlük özet', async () =
     assert.equal(items[0].others.length, 1);
     assert.deepEqual(getDigest(db, digest.day).sections, digest.sections);
 
-    // İlgi alanı değişince yeniden analiz kuyruğu
     assert.equal(pipeline.requeue(86400_000), 3);
     assert.equal(pipeline.queue().ready, 3);
   } finally {

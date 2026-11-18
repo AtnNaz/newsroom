@@ -4,9 +4,6 @@ import { fetchResource, errorCode } from './http.js';
 import { analyzeArticle, embeddingText } from './analyze.js';
 import { chooseCluster, toBlob, CLUSTER_WINDOW_MS } from './cluster.js';
 
-// Haber akışının işleyen kısmı: kaynakları indir → yeni haberleri kaydet → tam metni çıkar →
-// modelle analiz et → kümeye yerleştir. Model aynı anda tek haber işler (GPU/CPU paylaşımı).
-
 const DAY = 24 * 3600_000;
 const FEED_ACCEPT = 'application/rss+xml, application/atom+xml, application/rdf+xml;q=0.9, application/xml;q=0.9, text/xml;q=0.9, */*;q=0.5';
 const FIRST_FETCH_LIMIT = 20;
@@ -69,7 +66,6 @@ export function createPipeline({ db, settings, ollama, allowPrivate = false, log
     ollama: { ok: null, error: null, checked: null },
   };
 
-  // Tek kaynağı indirir; ETag/Last-Modified ile değişmemişse gövde hiç indirilmez.
   async function refreshSource(source, now = Date.now()) {
     const conditional = {};
     if (source.etag) conditional['If-None-Match'] = source.etag;
@@ -126,7 +122,6 @@ export function createPipeline({ db, settings, ollama, allowPrivate = false, log
     return { added };
   }
 
-  // Beslemede yalnızca kısa bir giriş varsa haber sayfası indirilip ana metin çıkarılır.
   async function extractOne(a) {
     try {
       const res = await fetchResource(a.url, { ...net, accept: 'text/html,application/xhtml+xml', maxBytes: 4_000_000 });
@@ -166,8 +161,6 @@ export function createPipeline({ db, settings, ollama, allowPrivate = false, log
     assignCluster(a.id, a.published ?? a.fetched);
   }
 
-  // Model kuyruğu boşalana kadar haberleri tek tek işler. Ollama'ya ulaşılamıyorsa ya da model
-  // yoksa haberler cezalandırılmaz, kuyruk sonraki tura bırakılır.
   async function analyzePending({ limit = Infinity } = {}) {
     let done = 0;
     while (done < limit) {
@@ -207,7 +200,6 @@ export function createPipeline({ db, settings, ollama, allowPrivate = false, log
     return true;
   }
 
-  // İlgi alanları ya da dil değişince son haberler yeniden analiz kuyruğuna alınır.
   function requeue(sinceMs) {
     const r = db.prepare("UPDATE articles SET status = 'ready', attempts = 0 WHERE status IN ('done', 'failed') AND COALESCE(published, fetched) > ?").run(Date.now() - sinceMs);
     return Number(r.changes);

@@ -1,9 +1,6 @@
 import { parseFeed, parseXml, discoverFeeds } from './feeds.js';
 import { fetchResource, errorCode } from './http.js';
 
-// Kaynak ekleme: verilen adres besleme ise doğrudan eklenir; bir web sayfasıysa sayfadaki
-// besleme bağlantıları bulunur. OPML içe/dışa aktarma da buradadır.
-
 const ACCEPT = 'application/rss+xml, application/atom+xml, application/xml;q=0.9, text/xml;q=0.9, text/html;q=0.8, */*;q=0.5';
 const fail = (code, extra) => Object.assign(new Error(code), { code, ...extra });
 
@@ -62,7 +59,6 @@ export function exportOpml(db) {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<opml version="2.0">\n  <head><title>Newsroom</title></head>\n  <body>\n${outlines.join('\n')}\n  </body>\n</opml>\n`;
 }
 
-// OPML'deki beslemeler doğrulanmadan eklenir; ilk yenilemede hatalı olanlar işaretlenir.
 export function importOpml(db, xml) {
   const root = parseXml(xml);
   const urls = [];
@@ -95,7 +91,6 @@ export function importOpml(db, xml) {
   return { added, total: urls.length };
 }
 
-// İlk açılışta önerilen kaynaklar (herkese açık, bilinen beslemeler).
 export const SUGGESTIONS = {
   tr: [
     { title: 'BBC Türkçe', url: 'https://feeds.bbci.co.uk/turkce/rss.xml' },
