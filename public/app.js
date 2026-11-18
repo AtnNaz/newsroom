@@ -1,4 +1,5 @@
 import { t as translate, LOCALES } from './i18n.js';
+import { PROVIDERS, providerById } from './providers.js';
 
 const state = { lang: 'tr', session: null, status: null, settings: null, feed: { sort: 'score', category: '', q: '' } };
 const t = (k, v) => translate(state.lang, k, v);
@@ -185,11 +186,17 @@ async function pollStatus() {
   const parts = [];
   if (s.current) parts.push(t('feed.analyzing', { title: s.current.title }));
   else if (pending && s.model) parts.push(t('feed.queue', { n: pending }));
-  if (s.ollama.ok === false) parts.push(t('settings.ollamaDown', { error: s.ollama.error }));
+  const providerName = providerLabel(s.provider);
+  if (s.llm.limited) parts.push(t('status.limited', { n: s.dailyLimit }));
+  else if (s.llm.ok === false) parts.push(t('settings.providerDown', { provider: providerName, error: llmError(s.llm.error) }));
   parts.push(`${t('status.lastRefresh')}: ${s.refreshing ? t('sources.refreshing') : relTime(s.lastRefresh)}`);
   $status.textContent = parts.join(' · ');
-  $status.classList.toggle('status-warn', s.ollama.ok === false);
+  $status.classList.toggle('status-warn', s.llm.ok === false || s.llm.limited);
 }
+
+const NET_CODES = ['refused', 'dns', 'timeout', 'network', 'reset', 'tls'];
+const llmError = (code) => (NET_CODES.includes(code) ? t('err.llm_unreachable') : errMessage(code) ?? code);
+const providerLabel = (id) => (id === 'ollama' ? t('settings.providerLocal') : providerById(id).label);
 
 function sourcesLine(item) {
   const n = (item.others?.length ?? 0) + 1;
@@ -610,11 +617,15 @@ async function viewSettings() {
   state.settings = s;
   const field = (id, label, control, hint) => h('div', { class: 'field' }, h('label', { for: id }, label), control, hint ? h('p', { class: 'hint' }, hint) : null);
   const select = (id, value, options) => h('select', { id }, options.map(([v, label]) => h('option', { value: v, selected: String(v) === String(value) }, label)));
-  const modelOptions = (value) => {
-    const names = models.models.map((m) => m.name);
+  const modelOptions = (list, value) => {
+    const names = list.map((m) => m.name);
     if (value && !names.includes(value)) names.unshift(value);
     return [['', t('settings.none')], ...names.map((n) => [n, n])];
   };
+  const provider = providerById(s.provider);
+  const modelControl = models.ok && models.models.length
+    ? select('model', s.model, modelOptions(models.models, s.model))
+    : h('input', { id: 'model', type: 'text', value: s.model, autocomplete: 'off', placeholder: t('settings.modelPick') });
 
   const el = {
     language: select('language', s.language, [
@@ -623,8 +634,12 @@ async function viewSettings() {
     ]),
     interests: h('textarea', { id: 'interests', rows: 5, value: s.interests.join('\n') }),
     minRelevance: h('input', { id: 'minRelevance', type: 'number', min: 0, max: 90, step: 5, value: s.minRelevance }),
-    model: select('model', s.model, modelOptions(s.model)),
-    embedModel: select('embedModel', s.embedModel, modelOptions(s.embedModel)),
+    aiProvider: select('aiProvider', provider.id, PROVIDERS.map((p) => [p.id, p.id === 'ollama' ? t('settings.providerLocal') : p.label])),
+    providerUrl: h('input', { id: 'providerUrl', type: 'url', value: s.providerUrl, autocomplete: 'off', placeholder: 'http://127.0.0.1:1234/v1' }),
+    apiKey: h('input', { id: 'apiKey', type: 'password', value: '', autocomplete: 'new-password', placeholder: s.keysSet?.[provider.id] ? t('settings.apiKeySet') : '' }),
+    dailyLimit: h('input', { id: 'dailyLimit', type: 'number', min: 0, max: 100000, step: 50, value: s.dailyLimit }),
+    model: modelControl,
+    embedModel: select('embedModel', s.embedModel, modelOptions(models.local?.models ?? [], s.embedModel)),
     fetchMinutes: select('fetchMinutes', s.fetchMinutes, [15, 30, 60, 120, 240].map((n) => [n, n < 60 ? t('settings.minutes', { n }) : t('settings.hours', { n: n / 60 })])),
     retentionDays: select('retentionDays', s.retentionDays, [7, 14, 30, 60, 90].map((n) => [n, t('settings.days', { n })])),
     digestEnabled: h('input', { id: 'digestEnabled', type: 'checkbox', checked: s.digestEnabled }),
@@ -681,7 +696,54 @@ async function viewSettings() {
   });
   applyProvider(!s.email.host);
 
-  const ollamaLine = h('p', { class: `small ${models.ok ? 'muted' : 'error-text'}` }, models.ok ? t('settings.ollamaOk', { n: models.models.length }) : t('settings.ollamaDown', { error: models.error }));
+  const providerLine = h(
+    'p',
+    { class: `small ${models.ok ? 'muted' : 'error-text'}` },
+    models.ok
+      ? t('settings.providerOk', { provider: providerLabel(provider.id), n: models.models.length })
+      : models.error === 'api_key_missing'
+        ? t('settings.modelSaveFirst')
+        : t('settings.providerDown', { provider: providerLabel(provider.id), error: llmError(models.error) }),
+  );
+  const keyField = provider.key
+    ? h(
+        'div',
+        { class: 'field' },
+        h('label', { for: 'apiKey' }, t('settings.apiKey'), provider.key === 'optional' ? ` (${t('settings.optional')})` : ''),
+        el.apiKey,
+        h(
+          'p',
+          { class: 'hint' },
+          provider.keyUrl ? h('a', { href: provider.keyUrl, target: '_blank', rel: 'noopener noreferrer' }, t('settings.apiKeyGet'), ' ', icon('ext')) : null,
+          s.keysSet?.[provider.id]
+            ? [
+                provider.keyUrl ? ' · ' : '',
+                h(
+                  'button',
+                  {
+                    class: 'link-btn danger',
+                    type: 'button',
+                    onclick: async () => {
+                      await api('PUT', 'settings', { apiKeys: { [provider.id]: null } }).catch((err) => toast(errText(err), 'error'));
+                      route();
+                    },
+                  },
+                  t('settings.apiKeyRemove'),
+                ),
+              ]
+            : null,
+        ),
+      )
+    : null;
+  el.aiProvider.addEventListener('change', async () => {
+    const next = el.aiProvider.value;
+    try {
+      await api('PUT', 'settings', { provider: next, model: next === s.provider ? s.model : '' });
+      route();
+    } catch (err) {
+      toast(errText(err), 'error');
+    }
+  });
   const rescoreBox = h('div', { class: 'rescore', hidden: true });
   const requeueBtn = (label) =>
     h(
@@ -704,7 +766,11 @@ async function viewSettings() {
     language: el.language.value,
     interests: el.interests.value.split('\n').map((x) => x.trim()).filter(Boolean),
     minRelevance: Number(el.minRelevance.value),
-    model: el.model.value,
+    provider: el.aiProvider.value,
+    ...(provider.custom ? { providerUrl: el.providerUrl.value.trim() } : {}),
+    ...(provider.key && el.apiKey.value.trim() ? { apiKeys: { [provider.id]: el.apiKey.value.trim() } } : {}),
+    ...(provider.local ? {} : { dailyLimit: Number(el.dailyLimit.value) }),
+    model: el.model.value.trim(),
     embedModel: el.embedModel.value,
     fetchMinutes: Number(el.fetchMinutes.value),
     retentionDays: Number(el.retentionDays.value),
@@ -719,8 +785,14 @@ async function viewSettings() {
     const langChanged = out.settings.language !== state.lang;
     state.settings = out.settings;
     state.lang = out.settings.language;
+    const reloadModels = Boolean(el.apiKey.value.trim()) || (provider.custom && el.providerUrl.value.trim() !== s.providerUrl);
     el.pass.value = '';
+    el.apiKey.value = '';
     toast(t('common.saved'));
+    if (reloadModels) {
+      await route();
+      return;
+    }
     if (langChanged) {
       renderShell();
       await route();
@@ -758,9 +830,13 @@ async function viewSettings() {
       'fieldset',
       {},
       h('legend', {}, t('settings.model')),
-      ollamaLine,
+      field('aiProvider', t('settings.provider'), el.aiProvider, provider.local ? null : t('settings.cloudNote')),
+      provider.custom ? field('providerUrl', t('settings.providerUrl'), el.providerUrl, t('settings.providerUrlHint')) : null,
+      keyField,
+      providerLine,
       field('model', t('settings.modelName'), el.model, t('settings.modelHint')),
-      field('embedModel', t('settings.embedModel'), el.embedModel, t('settings.embedHint')),
+      provider.local ? null : field('dailyLimit', t('settings.dailyLimit'), el.dailyLimit, t('settings.dailyLimitHint', { n: state.status?.analyzedToday ?? 0 })),
+      field('embedModel', provider.local ? t('settings.embedModel') : t('settings.embedLocal'), el.embedModel, t('settings.embedHint')),
       rescoreBox,
       h('p', {}, requeueBtn(t('settings.requeue'))),
     ),

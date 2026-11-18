@@ -70,7 +70,7 @@ test('indir → tam metin → analiz → kümele → günlük özet', async () =
     const settings = createSettings(db, DEFAULT_SETTINGS);
     settings.update({ model: 'test-model:7b', embedModel: 'embed-model', interests: ['yapay zekâ', 'uzay'] });
     db.prepare('INSERT INTO sources (url, title, created) VALUES (?, ?, ?)').run(`${site.url}/feed.xml`, '', Date.now());
-    const pipeline = createPipeline({ db, settings, ollama: createOllama({ url: ollama.url }), allowPrivate: true });
+    const pipeline = createPipeline({ db, settings, llm: createOllama({ url: ollama.url }), embedder: createOllama({ url: ollama.url }), allowPrivate: true });
 
     assert.equal((await pipeline.refreshAll()).added, 3);
     const src = db.prepare('SELECT * FROM sources').get();
@@ -95,7 +95,7 @@ test('indir → tam metin → analiz → kümele → günlük özet', async () =
     assert.equal((await pipeline.refreshAll()).added, 0);
     assert.equal(site.hits.notModified, 1);
 
-    const digest = await buildDigest({ db, settings, ollama: createOllama({ url: ollama.url }) });
+    const digest = await buildDigest({ db, settings, llm: createOllama({ url: ollama.url }) });
     assert.equal(digest.intro, 'Günün öne çıkan gelişmeleri.');
     const items = digest.sections.flatMap((s) => s.items);
     assert.equal(items.length, 2, 'küme tek haber olarak girer');
@@ -121,7 +121,7 @@ test('Ollama yoksa haberler cezalandırılmaz, model bulunamazsa kuyruk bekler',
   try {
     const settings = createSettings(db, DEFAULT_SETTINGS);
     db.prepare('INSERT INTO sources (url, title, created, full_text) VALUES (?, ?, ?, 0)').run(`${site.url}/feed.xml`, 'x', Date.now());
-    const pipeline = createPipeline({ db, settings, ollama: createOllama({ url: ollama.url }), allowPrivate: true });
+    const pipeline = createPipeline({ db, settings, llm: createOllama({ url: ollama.url }), embedder: createOllama({ url: ollama.url }), allowPrivate: true });
     await pipeline.refreshAll();
     assert.equal(pipeline.queue().ready, 3, 'tam metin kapalıyken sayfa indirilmez');
     await pipeline.work();
@@ -129,22 +129,22 @@ test('Ollama yoksa haberler cezalandırılmaz, model bulunamazsa kuyruk bekler',
 
     settings.update({ model: 'olmayan-model' });
     await pipeline.work();
-    assert.equal(pipeline.state.ollama.error, 'model_missing');
+    assert.equal(pipeline.state.llm.error, 'model_missing');
     assert.equal(db.prepare('SELECT MAX(attempts) AS n FROM articles').get().n, 0);
 
     settings.update({ model: 'test-model:7b', embedModel: 'embed-model' });
     let embedCalls = 0;
     const slowEmbed = { ...createOllama({ url: ollama.url }), embed: async () => { embedCalls++; throw Object.assign(new Error('timeout'), { code: 'timeout' }); } };
-    const paused = createPipeline({ db, settings, ollama: slowEmbed, allowPrivate: true, log: () => {} });
+    const paused = createPipeline({ db, settings, llm: createOllama({ url: ollama.url }), embedder: slowEmbed, allowPrivate: true, log: () => {} });
     await paused.analyzePending();
     assert.equal(embedCalls, 1, 'benzerlik modeli zaman aşımına düşünce sonraki haberlerde denenmez');
     assert.equal(paused.queue().done, 3, 'analiz benzerlik modeli olmadan sürer');
     paused.requeue(86400_000);
     settings.update({ model: '', embedModel: '' });
 
-    const dead = createPipeline({ db, settings: { ...settings, all: () => ({ ...settings.all(), model: 'test-model:7b' }) }, ollama: createOllama({ url: 'http://127.0.0.1:9' }), allowPrivate: true });
+    const dead = createPipeline({ db, settings: { ...settings, all: () => ({ ...settings.all(), model: 'test-model:7b' }) }, llm: createOllama({ url: 'http://127.0.0.1:9' }), allowPrivate: true });
     await dead.analyzePending();
-    assert.equal(dead.state.ollama.ok, false);
+    assert.equal(dead.state.llm.ok, false);
     assert.equal(db.prepare('SELECT MAX(attempts) AS n FROM articles').get().n, 0);
   } finally {
     db.close();
@@ -159,7 +159,7 @@ test('saklama süresi dolan haberler silinir, kaydedilenler kalır', () => {
   const db = openDb(path.join(tmp.dir, 'n.db'));
   try {
     const settings = createSettings(db, DEFAULT_SETTINGS);
-    const pipeline = createPipeline({ db, settings, ollama: null });
+    const pipeline = createPipeline({ db, settings, llm: null });
     db.prepare("INSERT INTO sources (id, url, created) VALUES (1, 'https://example.com/f', 0)").run();
     const old = Date.now() - 40 * 86400_000;
     db.prepare("INSERT INTO articles (source_id, url, title, fetched, saved) VALUES (1, 'https://example.com/1', 'a', ?, 0), (1, 'https://example.com/2', 'b', ?, 1), (1, 'https://example.com/3', 'c', ?, 0)").run(old, old, Date.now());

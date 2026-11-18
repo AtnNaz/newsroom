@@ -2,6 +2,7 @@ import path from 'node:path';
 import { openDb, createSettings } from './db.js';
 import { DEFAULT_SETTINGS } from './settings.js';
 import { createOllama } from './ollama.js';
+import { createLlm } from './llm.js';
 import { createPipeline } from './pipeline.js';
 import { createAuth } from './auth.js';
 import { buildDigest, getDigest, localDay, minutesOfDay, parseTime, markEmailed } from './digest.js';
@@ -14,8 +15,16 @@ const DIGEST_WAIT_MIN = 30;
 export function createApp(config, { log = (m) => console.log(m), fetchImpl } = {}) {
   const db = openDb(path.join(config.dataDir, 'newsroom.db'));
   const settings = createSettings(db, DEFAULT_SETTINGS);
-  const ollama = createOllama({ url: config.ollamaUrl, ...(fetchImpl ? { fetchImpl } : {}) });
-  const pipeline = createPipeline({ db, settings, ollama, allowPrivate: config.allowPrivateNetworks, log, fetchImpl });
+  const fetchOpt = fetchImpl ? { fetchImpl } : {};
+  const local = createOllama({ url: config.ollamaUrl, ...fetchOpt });
+  let cached = { signature: null, client: null };
+  const llm = () => {
+    const s = settings.all();
+    const signature = JSON.stringify([s.provider, s.providerUrl, s.apiKeys?.[s.provider] ?? '']);
+    if (cached.signature !== signature) cached = { signature, client: createLlm({ provider: s.provider, providerUrl: s.providerUrl, apiKeys: s.apiKeys, ollamaUrl: config.ollamaUrl, ...fetchOpt }) };
+    return cached.client;
+  };
+  const pipeline = createPipeline({ db, settings, llm, embedder: local, allowPrivate: config.allowPrivateNetworks, log, fetchImpl });
   const auth = createAuth({ db, config });
   const net = { allowPrivate: config.allowPrivateNetworks, ...(fetchImpl ? { fetchImpl } : {}) };
 
@@ -24,7 +33,7 @@ export function createApp(config, { log = (m) => console.log(m), fetchImpl } = {
   async function makeDigest({ email = true, now = Date.now() } = {}) {
     sched.digestBusy = true;
     try {
-      const digest = await buildDigest({ db, settings, ollama, now, log });
+      const digest = await buildDigest({ db, settings, llm: llm(), now, log });
       if (email && settings.get('email').enabled) await sendDigest(digest.day);
       return getDigest(db, digest.day);
     } finally {
@@ -52,7 +61,7 @@ export function createApp(config, { log = (m) => console.log(m), fetchImpl } = {
     const minute = minutesOfDay(now);
     const at = parseTime(s.digestTime);
     if (minute < at || getDigest(db, localDay(now))) return false;
-    if (!s.model || pipeline.state.ollama.ok === false || minute >= at + DIGEST_WAIT_MIN) return true;
+    if (!s.model || pipeline.state.llm.ok === false || pipeline.state.llm.limited || minute >= at + DIGEST_WAIT_MIN) return true;
     const pending = db.prepare("SELECT COUNT(*) AS n FROM articles WHERE status IN ('new', 'ready') AND COALESCE(published, fetched) > ?").get(now - 86400_000).n;
     return pending === 0;
   }
@@ -81,7 +90,8 @@ export function createApp(config, { log = (m) => console.log(m), fetchImpl } = {
     config,
     db,
     settings,
-    ollama,
+    llm,
+    local,
     pipeline,
     auth,
     net,

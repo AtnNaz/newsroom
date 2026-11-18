@@ -52,7 +52,7 @@ const cookies = (req) => Object.fromEntries((req.headers.cookie ?? '').split(';'
 
 function loadStatic() {
   const files = new Map();
-  for (const name of ['index.html', 'app.js', 'i18n.js', 'style.css', 'favicon.svg', 'manifest.webmanifest']) {
+  for (const name of ['index.html', 'app.js', 'i18n.js', 'providers.js', 'style.css', 'favicon.svg', 'manifest.webmanifest']) {
     const p = path.join(PUBLIC, name);
     if (!existsSync(p)) continue;
     const body = readFileSync(p);
@@ -96,7 +96,7 @@ const ARTICLE_COLS = `a.id, a.source_id, a.url, a.title, a.title_local, a.summar
   a.image, a.published, a.fetched, a.cluster_id, a.status, a.feedback, a.saved, a.read_at, s.title AS source_title`;
 
 export function createServer(app) {
-  const { db, settings, pipeline, ollama, auth, config, net } = app;
+  const { db, settings, pipeline, auth, config, net } = app;
   const assets = loadStatic();
 
   function listArticles(q) {
@@ -176,23 +176,22 @@ export function createServer(app) {
       refreshing: pipeline.state.refreshing,
       lastRefresh: pipeline.state.lastRefresh,
       nextRefresh: app.nextRefresh(),
-      ollama: pipeline.state.ollama,
+      llm: pipeline.state.llm,
+      provider: s.provider,
       model: s.model,
+      analyzedToday: db.prepare('SELECT COUNT(*) AS n FROM articles WHERE provider = ? AND analyzed_at > ?').get(s.provider, Date.now() - DAY).n,
+      dailyLimit: s.provider === 'ollama' ? 0 : s.dailyLimit,
       digest: { enabled: s.digestEnabled, time: s.digestTime, today: Boolean(today) },
       sources: db.prepare('SELECT COUNT(*) AS n FROM sources').get().n,
     };
   }
 
   async function models() {
-    try {
-      const list = await ollama.models();
-      pipeline.state.ollama = { ok: true, error: null, checked: Date.now() };
-      return { ok: true, models: list };
-    } catch (err) {
-      const code = errorCode(err);
-      pipeline.state.ollama = { ok: false, error: code, checked: Date.now() };
-      return { ok: false, error: code, models: [] };
-    }
+    const s = settings.all();
+    const settle = (p) => p.then((list) => ({ ok: true, models: list })).catch((err) => ({ ok: false, error: errorCode(err), detail: err.detail, models: [] }));
+    const [remote, local] = await Promise.all([settle(app.llm().models()), s.provider === 'ollama' ? null : settle(app.local.models())]);
+    pipeline.state.llm = { ...pipeline.state.llm, ok: remote.ok, error: remote.ok ? null : remote.error, checked: Date.now() };
+    return { provider: s.provider, ...remote, local: local ?? remote };
   }
 
   const routes = [

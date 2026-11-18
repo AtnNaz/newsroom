@@ -12,7 +12,8 @@ Geliştirici: [Ali Toprak Naz](https://github.com/AtnNaz) · Lisans: [PolyForm N
 - **Öğrenen sıralama:** ▲ / ▼ ile verdiğiniz geri bildirim ve kaydettiğiniz haberler, ilgili konu ve kaynakları sonraki sıralamalarda öne çıkarır ya da geri plana atar.
 - **E-posta:** günlük özet istediğiniz saatte SMTP ile gönderilir (STARTTLS / TLS, tek dosyalık sade HTML).
 - **Kaynaklar:** besleme adresi ya da yalnızca sitenin ana sayfası yeterli, besleme kendiliğinden bulunur. OPML içe/dışa aktarma. Kısa giriş veren beslemelerde haberin tam metni sayfadan çıkarılır.
-- **Gizlilik:** haberler yalnızca sizin Ollama sunucunuza gönderilir; hiçbir bulut servisi, takip ya da analitik yoktur.
+- **Yapay zekâ sağlayıcısı:** varsayılan olarak kendi sunucunuzdaki Ollama; isterseniz Ollama Cloud, OpenAI, Anthropic (Claude), Google Gemini, OpenRouter, Groq, DeepSeek, Mistral ya da OpenAI uyumlu herhangi bir API (LM Studio, vLLM, llama.cpp). Bulut servisleri için günlük analiz sınırı vardır.
+- **Gizlilik:** yerel Ollama kullanıldığında haberler sunucunuzdan çıkmaz; bulut sağlayıcı seçerseniz yalnızca analiz edilen haber metni o servise gider. Takip ya da analitik yoktur.
 
 Hiçbir npm paketine ihtiyaç duymaz; yalnızca Node.js'in kendi modüllerini kullanır (veritabanı için yerleşik `node:sqlite`).
 
@@ -128,6 +129,23 @@ ollama pull bge-m3
 Benzerlik modeli işlemcide çalıştırılır (kısa bir metin için ~0,15 sn). Böylece ekran kartının belleği analiz modeline kalır; iki model 8 GB'lık bir kartta birbirini sürekli çıkarıp yeniden yüklemez.
 
 Düşünen (reasoning) modellerde düşünme kapatılarak çalıştırılır; destekleri yoksa istek kendiliğinden düşünme alanı olmadan tekrarlanır.
+
+## Yapay zekâ sağlayıcıları
+
+Ayarlar → Yapay zekâ bölümünden sağlayıcıyı seçin, API anahtarını yazıp kaydedin; modeller listelenir.
+
+| Sağlayıcı | Nasıl bağlanır | Not |
+|---|---|---|
+| Ollama (bu sunucu) | `ollamaUrl` ayarı | Anahtar gerekmez, haberler sunucudan çıkmaz |
+| Ollama Cloud | `https://ollama.com/api`, API anahtarı | Bulut modelleri şemaya bağlı JSON desteklemediği için şema isteme yazılır ve yanıttan JSON ayıklanır |
+| OpenAI, Gemini, OpenRouter, Groq, DeepSeek, Mistral | OpenAI uyumlu API, API anahtarı | Önce katı JSON şeması denenir; desteklemeyen servislerde JSON kipine, o da yoksa istemdeki şemaya geçilir |
+| Anthropic (Claude) | Messages API, API anahtarı | Şema `output_config.format` ile verilir |
+| OpenAI uyumlu (LM Studio, vLLM, llama.cpp…) | Elle yazılan adres, anahtar isteğe bağlı | Ör. `http://127.0.0.1:1234/v1` |
+
+- API anahtarları veritabanında saklanır, arayüze hiçbir zaman geri gönderilmez; her sağlayıcının anahtarı ayrı tutulur, sağlayıcı değiştirince kaybolmaz.
+- Bulut sağlayıcılarda **günlük analiz sınırı** (varsayılan 500) son 24 saatte o servisle analiz edilen haber sayısını sınırlar; sınır dolunca kuyruk bekler, ertesi gün devam eder. Günde birkaç yüz haber için küçük, ucuz modeller yeterlidir; fiyatlar servisten servise değişir.
+- Anahtar geçersizse, kredi biterse ya da servis istek sınırına takılırsa analiz durur ve durum satırında gösterilir; haberler hatalı sayılmaz, sorun giderilince kaldığı yerden sürer.
+- Benzerlik modeli her zaman bu sunucudaki Ollama'da çalışır (bkz. [Model seçimi](#model-seçimi)); bulut sağlayıcıyla birlikte de kullanılabilir.
 
 ## E-posta
 

@@ -1,3 +1,5 @@
+import { PROVIDERS } from '../public/providers.js';
+
 export const CATEGORIES = ['ai', 'tech', 'software', 'hardware', 'science', 'space', 'security', 'games', 'business', 'economy', 'politics', 'world', 'turkey', 'health', 'sports', 'culture', 'auto', 'other'];
 export const LANGUAGES = ['tr', 'en'];
 export const FETCH_MINUTES = [15, 30, 60, 120, 240];
@@ -6,6 +8,10 @@ export const RETENTION_DAYS = [7, 14, 30, 60, 90];
 export const DEFAULT_SETTINGS = {
   language: 'tr',
   interests: [],
+  provider: 'ollama',
+  providerUrl: '',
+  apiKeys: {},
+  dailyLimit: 500,
   model: '',
   embedModel: '',
   fetchMinutes: 30,
@@ -18,7 +24,16 @@ export const DEFAULT_SETTINGS = {
 };
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
-const MODEL = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/;
+const MODEL = /^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,199}$/;
+const PROVIDER_IDS = PROVIDERS.map((p) => p.id);
+const httpUrl = (v) => {
+  try {
+    const u = new URL(v);
+    return (u.protocol === 'http:' || u.protocol === 'https:') && !u.username && !u.password;
+  } catch {
+    return false;
+  }
+};
 const HOST = /^(?=.{1,253}$)[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?$/;
 const EMAIL = /^[^\s@<>"',;]{1,64}@[A-Za-z0-9.-]{1,253}\.[A-Za-z]{2,}$/;
 const str = (v, max) => typeof v === 'string' && v.length <= max && !/[\0\r\n]/.test(v);
@@ -35,6 +50,31 @@ export function validateSettings(input, current = DEFAULT_SETTINGS) {
       case 'interests':
         if (Array.isArray(v) && v.length <= 40 && v.every((s) => str(s, 80) && s.trim())) value[k] = [...new Set(v.map((s) => s.trim()))];
         else errors.push(k);
+        break;
+      case 'provider':
+        PROVIDER_IDS.includes(v) ? (value[k] = v) : errors.push(k);
+        break;
+      case 'providerUrl':
+        v === '' || (typeof v === 'string' && v.length <= 500 && httpUrl(v)) ? (value[k] = v.replace(/\/+$/, '')) : errors.push(k);
+        break;
+      case 'apiKeys': {
+        if (!v || typeof v !== 'object' || Array.isArray(v)) {
+          errors.push(k);
+          break;
+        }
+        const keys = { ...current.apiKeys };
+        for (const [id, key] of Object.entries(v)) {
+          if (!PROVIDER_IDS.includes(id)) errors.push(`apiKeys.${id}`);
+          else if (key === null) delete keys[id];
+          else if (typeof key === 'string' && key.length <= 400 && !/[\s\0]/.test(key.trim())) {
+            if (key.trim()) keys[id] = key.trim();
+          } else errors.push(`apiKeys.${id}`);
+        }
+        value[k] = keys;
+        break;
+      }
+      case 'dailyLimit':
+        Number.isInteger(v) && v >= 0 && v <= 100_000 ? (value[k] = v) : errors.push(k);
         break;
       case 'model':
       case 'embedModel':
@@ -90,5 +130,6 @@ export function validateSettings(input, current = DEFAULT_SETTINGS) {
 
 export function publicSettings(s) {
   const { pass, ...email } = s.email;
-  return { ...s, email: { ...email, passSet: Boolean(pass) } };
+  const { apiKeys, ...rest } = s;
+  return { ...rest, keysSet: Object.fromEntries(Object.entries(apiKeys ?? {}).map(([id, key]) => [id, Boolean(key)])), email: { ...email, passSet: Boolean(pass) } };
 }

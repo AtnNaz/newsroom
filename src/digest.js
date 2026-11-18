@@ -85,14 +85,14 @@ export function introMessages(sections, language) {
 
 const INTRO_SCHEMA = { type: 'object', properties: { intro: { type: 'string' } }, required: ['intro'] };
 
-export async function buildDigest({ db, settings, ollama, now = Date.now(), log = () => {} }) {
+export async function buildDigest({ db, settings, llm, now = Date.now(), log = () => {} }) {
   const s = settings.all();
   const groups = groupClusters(digestRows(db, now), loadAffinity(db, now), now);
   const sections = selectStories(groups, s);
   let intro = null;
   if (s.model && sections.length) {
     try {
-      const out = await ollama.chatJson({ model: s.model, messages: introMessages(sections, s.language), schema: INTRO_SCHEMA, temperature: 0.4 });
+      const out = await llm.chatJson({ model: s.model, messages: introMessages(sections, s.language), schema: INTRO_SCHEMA, temperature: 0.4 });
       intro = typeof out?.intro === 'string' ? out.intro.replace(/\s+/g, ' ').trim().slice(0, 1200) || null : null;
     } catch (err) {
       log(`giriş paragrafı yazılamadı: ${err.message}`);

@@ -82,6 +82,9 @@ export function openDb(file) {
   if (fresh && file !== ':memory:') chmodSync(file, 0o600);
   db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;');
   db.exec(SCHEMA);
+  const columns = db.prepare('PRAGMA table_info(articles)').all().map((c) => c.name);
+  if (!columns.includes('provider')) db.exec('ALTER TABLE articles ADD COLUMN provider TEXT');
+  db.exec('CREATE INDEX IF NOT EXISTS articles_analyzed ON articles(analyzed_at)');
   return db;
 }
 

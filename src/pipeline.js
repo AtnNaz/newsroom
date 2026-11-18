@@ -10,6 +10,7 @@ const FIRST_FETCH_LIMIT = 20;
 const FULL_TEXT_MIN = 1200;
 const ANALYZE_WINDOW = 7 * DAY;
 const EMBED_PAUSE_MS = 15 * 60_000;
+const STOP_CODES = ['model_missing', 'refused', 'dns', 'timeout', 'network', 'reset', 'tls', 'auth_failed', 'rate_limited', 'quota', 'api_key_missing', 'provider_url_missing'];
 
 async function mapLimit(items, limit, fn) {
   let i = 0;
@@ -22,7 +23,8 @@ async function mapLimit(items, limit, fn) {
   await Promise.all(workers);
 }
 
-export function createPipeline({ db, settings, ollama, allowPrivate = false, log = () => {}, fetchImpl }) {
+export function createPipeline({ db, settings, llm, embedder, allowPrivate = false, log = () => {}, fetchImpl }) {
+  const currentLlm = typeof llm === 'function' ? llm : () => llm;
   const net = { allowPrivate, ...(fetchImpl ? { fetchImpl } : {}) };
   const st = {
     sourceById: db.prepare('SELECT * FROM sources WHERE id = ?'),
@@ -48,7 +50,7 @@ export function createPipeline({ db, settings, ollama, allowPrivate = false, log
     ),
     analyzed: db.prepare(
       `UPDATE articles SET status = 'done', title_local = ?, summary = ?, category = ?, tags = ?, relevance = ?, reason = ?,
-       analyzed_at = ?, model = ?, embedding = ?, error = NULL, attempts = 0 WHERE id = ?`,
+       analyzed_at = ?, model = ?, provider = ?, embedding = ?, error = NULL, attempts = 0 WHERE id = ?`,
     ),
     analyzeFail: db.prepare("UPDATE articles SET attempts = attempts + 1, error = ?, status = CASE WHEN attempts + 1 >= 3 THEN 'failed' ELSE status END WHERE id = ?"),
     clusterCandidates: db.prepare(
@@ -64,7 +66,7 @@ export function createPipeline({ db, settings, ollama, allowPrivate = false, log
     working: false,
     lastRefresh: null,
     current: null,
-    ollama: { ok: null, error: null, checked: null },
+    llm: { ok: null, error: null, checked: null, limited: false },
     embedPausedUntil: 0,
   };
 
@@ -150,19 +152,23 @@ export function createPipeline({ db, settings, ollama, allowPrivate = false, log
   }
 
   async function analyzeOne(a, s) {
-    const result = await analyzeArticle(ollama, a, s);
+    const result = await analyzeArticle(currentLlm(), a, s);
     let embedding = null;
-    if (s.embedModel && Date.now() >= state.embedPausedUntil) {
+    if (s.embedModel && embedder && Date.now() >= state.embedPausedUntil) {
       try {
-        embedding = toBlob(await ollama.embed({ model: s.embedModel, input: embeddingText({ ...a, title_local: result.title, summary: result.summary }) }));
+        embedding = toBlob(await embedder.embed({ model: s.embedModel, input: embeddingText({ ...a, title_local: result.title, summary: result.summary }) }));
       } catch (err) {
         const code = errorCode(err);
         state.embedPausedUntil = Date.now() + EMBED_PAUSE_MS;
         log(`gömme alınamadı (${code}); benzerlik modeli 15 dakika atlanacak, kümeleme başlıklarla sürüyor`);
       }
     }
-    st.analyzed.run(result.title, result.summary, result.category, JSON.stringify(result.tags), result.relevance, result.reason, Date.now(), s.model, embedding, a.id);
+    st.analyzed.run(result.title, result.summary, result.category, JSON.stringify(result.tags), result.relevance, result.reason, Date.now(), s.model, s.provider ?? 'ollama', embedding, a.id);
     assignCluster(a.id, a.published ?? a.fetched);
+  }
+
+  function analyzedToday(provider) {
+    return db.prepare('SELECT COUNT(*) AS n FROM articles WHERE provider = ? AND analyzed_at > ?').get(provider, Date.now() - DAY).n;
   }
 
   async function analyzePending({ limit = Infinity } = {}) {
@@ -170,18 +176,23 @@ export function createPipeline({ db, settings, ollama, allowPrivate = false, log
     while (done < limit) {
       const s = settings.all();
       if (!s.model) return done;
+      if ((s.provider ?? 'ollama') !== 'ollama' && s.dailyLimit > 0 && analyzedToday(s.provider) >= s.dailyLimit) {
+        state.llm = { ...state.llm, limited: true };
+        return done;
+      }
+      state.llm.limited = false;
       const a = st.nextAnalyze.get(Date.now() - ANALYZE_WINDOW);
       if (!a) return done;
       state.current = { id: a.id, title: a.title };
       try {
         await analyzeOne(a, s);
-        state.ollama = { ok: true, error: null, checked: Date.now() };
+        state.llm = { ok: true, error: null, checked: Date.now(), limited: false };
         done++;
       } catch (err) {
         const code = errorCode(err);
-        if (['model_missing', 'refused', 'dns', 'timeout', 'network'].includes(code) || /^ollama_http_5/.test(code)) {
-          state.ollama = { ok: false, error: code, checked: Date.now() };
-          log(`ollama: ${code}`);
+        if (STOP_CODES.includes(code) || /^(ollama|llm)_http_5/.test(code)) {
+          state.llm = { ok: false, error: code, checked: Date.now(), limited: false };
+          log(`yapay zekâ: ${code}`);
           return done;
         }
         st.analyzeFail.run(code, a.id);
