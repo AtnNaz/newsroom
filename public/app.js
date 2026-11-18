@@ -656,10 +656,10 @@ async function viewSettings() {
     ]),
     host: h('input', { id: 'host', type: 'text', value: s.email.host, autocomplete: 'off', placeholder: 'smtp.example.com' }),
     port: h('input', { id: 'port', type: 'number', min: 1, max: 65535, value: s.email.port }),
-    security: select('security', s.email.security, [
+    security: select('security', s.email.port === 465 ? 'tls' : s.email.security, [
+      ['tls', 'SSL/TLS (465)'],
       ['starttls', 'STARTTLS (587)'],
-      ['tls', 'TLS (465)'],
-      ['none', '—'],
+      ['none', t('settings.smtpNoTls')],
     ]),
     user: h('input', { id: 'user', type: 'text', value: s.email.user, autocomplete: 'off' }),
     pass: h('input', { id: 'pass', type: 'password', value: '', autocomplete: 'new-password', placeholder: s.email.passSet ? t('settings.smtpPassSet') : '' }),
@@ -687,6 +687,16 @@ async function viewSettings() {
     );
   };
   el.provider.addEventListener('change', () => applyProvider(true));
+  // Port ile güvenlik türü birlikte değişir: 465 → TLS, 587/25 → STARTTLS.
+  el.port.addEventListener('change', () => {
+    const port = Number(el.port.value);
+    if (port === 465) el.security.value = 'tls';
+    else if ((port === 587 || port === 25) && el.security.value === 'tls') el.security.value = 'starttls';
+  });
+  el.security.addEventListener('change', () => {
+    if (el.security.value === 'tls' && Number(el.port.value) === 587) el.port.value = 465;
+    if (el.security.value === 'starttls' && Number(el.port.value) === 465) el.port.value = 587;
+  });
   applyProvider(!s.email.host);
 
   const ollamaLine = h('p', { class: `small ${models.ok ? 'muted' : 'error-text'}` }, models.ok ? t('settings.ollamaOk', { n: models.models.length }) : t('settings.ollamaDown', { error: models.error }));

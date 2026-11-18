@@ -100,10 +100,21 @@ function responseReader() {
 export async function sendMail({ host, port, security = 'starttls', user = '', pass = '', from, to, subject, text, html, timeoutMs = 30_000, tlsOptions = {}, clientName = 'newsroom.localdomain' }) {
   const sender = from || user;
   if (!host || !to || !sender) throw Object.assign(new Error('email_incomplete'), { code: 'email_incomplete' });
+  // 465 numaralı port her zaman doğrudan TLS ister; orada STARTTLS seçilmişse iki taraf da
+  // karşı tarafın konuşmasını bekler ve bağlantı zaman aşımına düşer. Bu yaygın karışıklık düzeltilir.
+  if (Number(port) === 465 && security === 'starttls') security = 'tls';
   let socket = security === 'tls' ? tls.connect({ host, port, servername: host, ...tlsOptions }) : net.connect({ host, port });
   const reader = responseReader();
   reader.attach(socket);
-  const timer = setTimeout(() => socket.destroy(Object.assign(new Error('timeout'), { code: 'timeout' })), timeoutMs);
+  let greeted = false;
+  const timer = setTimeout(() => {
+    const code = greeted ? 'timeout' : 'no_greeting';
+    socket.destroy(Object.assign(new Error(code), { code }));
+  }, timeoutMs);
+  // Sunucu karşılama satırını göndermezse port ile güvenlik türü büyük olasılıkla uyuşmuyordur.
+  const greetTimer = setTimeout(() => {
+    if (!greeted) socket.destroy(Object.assign(new Error('no_greeting'), { code: 'no_greeting' }));
+  }, Math.min(15_000, timeoutMs));
   const step = async (line, expect) => {
     if (line !== null) socket.write(`${line}\r\n`);
     const res = await reader.next();
@@ -113,6 +124,7 @@ export async function sendMail({ host, port, security = 'starttls', user = '', p
   try {
     await once(socket, security === 'tls' ? 'secureConnect' : 'connect');
     await step(null, [220]);
+    greeted = true;
     let ehlo = await step(`EHLO ${clientName}`, [250]);
     if (security === 'starttls') {
       if (!ehlo.lines.some((l) => /^STARTTLS\b/i.test(l))) throw Object.assign(new Error('starttls_unsupported'), { code: 'starttls_unsupported' });
@@ -138,6 +150,7 @@ export async function sendMail({ host, port, security = 'starttls', user = '', p
     await step('QUIT', [221]).catch(() => {});
   } finally {
     clearTimeout(timer);
+    clearTimeout(greetTimer);
     socket.destroy();
   }
 }

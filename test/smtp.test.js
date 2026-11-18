@@ -122,3 +122,15 @@ test('kapalı porta bağlantı anlaşılır bir hata kodu verir', async () => {
   const err = await sendMail({ host: '127.0.0.1', port, security: 'none', to: 'a@example.com', from: 'b@example.com', subject: 's', text: 't' }).catch((e) => e);
   assert.equal(errorCode(err), 'refused');
 });
+
+test('karşılama göndermeyen sunucu (port/güvenlik uyuşmazlığı) anlaşılır hata verir', async () => {
+  const silent = net.createServer(() => {});
+  silent.listen(0, '127.0.0.1');
+  await once(silent, 'listening');
+  try {
+    const err = await sendMail({ host: '127.0.0.1', port: silent.address().port, security: 'none', to: 'a@example.com', from: 'b@example.com', subject: 's', text: 't', timeoutMs: 300 }).catch((e) => e);
+    assert.equal(errorCode(err), 'no_greeting');
+  } finally {
+    silent.close();
+  }
+});
