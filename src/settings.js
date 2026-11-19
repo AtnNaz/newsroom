@@ -14,6 +14,7 @@ export const DEFAULT_SETTINGS = {
   dailyLimit: 500,
   model: '',
   embedModel: '',
+  embedOnGpu: false,
   fetchMinutes: 30,
   retentionDays: 30,
   digestEnabled: true,
@@ -86,6 +87,7 @@ export function validateSettings(input, current = DEFAULT_SETTINGS) {
       case 'retentionDays':
         RETENTION_DAYS.includes(v) ? (value[k] = v) : errors.push(k);
         break;
+      case 'embedOnGpu':
       case 'digestEnabled':
         typeof v === 'boolean' ? (value[k] = v) : errors.push(k);
         break;

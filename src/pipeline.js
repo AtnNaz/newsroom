@@ -159,7 +159,7 @@ export function createPipeline({ db, settings, llm, embedder, allowPrivate = fal
     let embedding = null;
     if (s.embedModel && embedder && Date.now() >= state.embedPausedUntil) {
       try {
-        embedding = toBlob(await embedder.embed({ model: s.embedModel, input: embeddingText({ ...a, title_local: result.title, summary: result.summary }) }));
+        embedding = toBlob(await embedder.embed({ model: s.embedModel, gpu: Boolean(s.embedOnGpu), input: embeddingText({ ...a, title_local: result.title, summary: result.summary }) }));
       } catch (err) {
         const code = errorCode(err);
         state.embedPausedUntil = Date.now() + EMBED_PAUSE_MS;

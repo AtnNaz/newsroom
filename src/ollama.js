@@ -43,8 +43,8 @@ export function createOllama({ url, fetchImpl = fetch, timeoutMs = 3 * 60_000 })
         throw new Error('invalid_model_output');
       }
     },
-    async embed({ model, input }) {
-      const data = await post('api/embed', { model, input, keep_alive: '10m', options: { num_gpu: 0 } }, 20_000);
+    async embed({ model, input, gpu = false }) {
+      const data = await post('api/embed', { model, input, keep_alive: '10m', ...(gpu ? {} : { options: { num_gpu: 0 } }) }, 20_000);
       const v = data?.embeddings?.[0];
       if (!Array.isArray(v) || !v.length) throw new Error('invalid_embedding');
       return v;
